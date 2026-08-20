@@ -1,0 +1,55 @@
+{
+  "meta": {"type": "users", "count": 6, "version": 5, "data_version": 3, "compiler": "3.3.4.0"},
+  "data": [
+    {
+      "ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-500",
+      "Properties": {"domain": "CORP.LOCAL", "name": "ADMINISTRATOR@CORP.LOCAL", "sam": "administrator",
+        "enabled": true, "admincount": true, "sensitive": true, "dontreqpreauth": false,
+        "description": "Built-in Administrator account", "pwdlastset": 133481920000000000,
+        "lastlogon": 133501800000000000},
+      "PrimaryGroupSID": "S-1-5-21-3623811015-3361044348-30300820-512",
+      "Aces": []
+    },
+    {
+      "ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-502",
+      "Properties": {"domain": "CORP.LOCAL", "name": "KRBTGT@CORP.LOCAL", "sam": "krbtgt",
+        "enabled": true, "admincount": true, "sensitive": true, "description": "Key Distribution Center Service Account"},
+      "PrimaryGroupSID": "S-1-5-21-3623811015-3361044348-30300820-513",
+      "Aces": []
+    },
+    {
+      "ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-1104",
+      "Properties": {"domain": "CORP.LOCAL", "name": "JSMITH@CORP.LOCAL", "sam": "jsmith",
+        "enabled": true, "displayname": "John Smith", "mail": "jsmith@corp.example.com",
+        "pwdlastset": 133410000000000000, "description": "1st line support"},
+      "PrimaryGroupSID": "S-1-5-21-3623811015-3361044348-30300820-513",
+      "Aces": [],
+      "AllowedToDelegate": []
+    },
+    {
+      "ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-1105",
+      "Properties": {"domain": "CORP.LOCAL", "name": "HELPDESK1@CORP.LOCAL", "sam": "helpdesk1",
+        "enabled": true, "pwdlastset": 133450000000000000, "description": "2nd line support"},
+      "PrimaryGroupSID": "S-1-5-21-3623811015-3361044348-30300820-513",
+      "Aces": []
+    },
+    {
+      "ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-1106",
+      "Properties": {"domain": "CORP.LOCAL", "name": "SVC_MSSQL@CORP.LOCAL", "sam": "svc_mssql",
+        "enabled": true, "serviceprincipalnames": ["MSSQLSvc/SRV-SQL.CORP.LOCAL:1433"],
+        "pwdlastset": 133300000000000000, "description": "SQL Service Account"},
+      "PrimaryGroupSID": "S-1-5-21-3623811015-3361044348-30300820-513",
+      "SPNTargets": [{"ComputerSID": "S-1-5-21-3623811015-3361044348-30300820-2103", "Service": "MSSQLSvc", "Port": 1433}],
+      "Aces": []
+    },
+    {
+      "ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-1108",
+      "Properties": {"domain": "CORP.LOCAL", "name": "GMSA_WEB@CORP.LOCAL", "sam": "gmsa_web$",
+        "enabled": true, "passwordneverexpires": true, "description": "gMSA for web app pool"},
+      "PrimaryGroupSID": "S-1-5-21-3623811015-3361044348-30300820-513",
+      "Aces": [
+        {"RightName": "ReadGMSAPassword", "PrincipalSID": "S-1-5-21-3623811015-3361044348-30300820-1203", "PrincipalType": "Group", "IsInherited": false, "AceType": "Extended"}
+      ]
+    }
+  ]
+}

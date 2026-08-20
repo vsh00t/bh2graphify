@@ -1,0 +1,27 @@
+{
+  "meta": {"type": "domains", "count": 1, "version": 5, "data_version": 3, "compiler": "3.3.4.0"},
+  "data": [
+    {
+      "ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820",
+      "Properties": {"domain": "CORP.LOCAL", "name": "CORP.LOCAL",
+        "domainsid": "S-1-5-21-3623811015-3361044348-30300820",
+        "functionallevel": 7, "highvalue": true},
+      "Trusts": [
+        {"TargetDomainSid": "S-1-5-21-9988776655-4433221100-9988776655",
+         "TargetDomainName": "RES.LOCAL", "TrustDirection": "Bidirectional",
+         "TrustType": "ParentChild", "IsTransitive": true, "SidFilteringEnabled": false}
+      ],
+      "Aces": [
+        {"RightName": "GetChangesAll", "PrincipalSID": "S-1-5-21-3623811015-3361044348-30300820-2101", "PrincipalType": "Computer", "IsInherited": false, "AceType": "Extended"},
+        {"RightName": "GenericAll", "PrincipalSID": "S-1-5-21-3623811015-3361044348-30300820-512", "PrincipalType": "Group", "IsInherited": false, "AceType": "All"}
+      ],
+      "ChildObjects": [
+        {"ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-3101", "ObjectType": "OU"},
+        {"ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-2101", "ObjectType": "Computer"},
+        {"ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-2102", "ObjectType": "Computer"},
+        {"ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-1104", "ObjectType": "User"},
+        {"ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-512", "ObjectType": "Group"}
+      ]
+    }
+  ]
+}

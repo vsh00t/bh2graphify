@@ -1,0 +1,28 @@
+{
+ "meta": {
+  "type": "domains",
+  "count": 1
+ },
+ "data": [
+  {
+   "ObjectIdentifier": "S-1-5-21-7777777777-8888888888-9999999999",
+   "Properties": {
+    "name": "SECT-OR.GOB.EC",
+    "functionallevel": 2016,
+    "domainsid": "S-1-5-21-7777777777-8888888888-9999999999"
+   },
+   "Trusts": [
+    {
+     "TargetDomainSid": "S-1-5-21-1515151515-1616161616-1717171717",
+     "TargetDomainName": "SOCIEDAD-EXTERNA.COM",
+     "TrustDirection": "Inbound",
+     "TrustType": "External",
+     "IsTransitive": false,
+     "SidFilteringEnabled": true
+    }
+   ],
+   "ChildObjects": [],
+   "Aces": []
+  }
+ ]
+}

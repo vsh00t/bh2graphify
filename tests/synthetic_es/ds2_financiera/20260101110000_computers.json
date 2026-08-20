@@ -1,0 +1,47 @@
+{
+ "meta": {
+  "type": "computers",
+  "count": 1
+ },
+ "data": [
+  {
+   "ObjectIdentifier": "S-1-5-21-4444444444-5555555555-6666666666-1202",
+   "Properties": {
+    "name": "SERVIDOR AUDITORÍA.financiera.local",
+    "domain": "FINANCIERA.LOCAL",
+    "enabled": true,
+    "haslaps": true
+   },
+   "PrimaryGroupSID": "S-1-5-21-4444444444-5555555555-6666666666-513",
+   "Sessions": {
+    "Collected": true,
+    "FailureReason": null,
+    "Results": []
+   },
+   "PrivilegedSessions": {
+    "Collected": true,
+    "FailureReason": null,
+    "Results": [
+     {
+      "UserSID": "S-1-5-21-4444444444-5555555555-6666666666-1203",
+      "ComputerSID": "S-1-5-21-4444444444-5555555555-6666666666-1202"
+     }
+    ]
+   },
+   "LocalGroups": [
+    {
+     "Name": "ADMINISTRATORS@SERVIDOR AUDITORÍA.financiera.local",
+     "ObjectIdentifier": "S-1-5-21-4444444444-5555555555-6666666666-1202-lg1",
+     "Collected": true,
+     "Results": [
+      {
+       "ObjectIdentifier": "S-1-5-21-4444444444-5555555555-6666666666-1201",
+       "ObjectType": "User"
+      }
+     ]
+    }
+   ],
+   "Aces": []
+  }
+ ]
+}

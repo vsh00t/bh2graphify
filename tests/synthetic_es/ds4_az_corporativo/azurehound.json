@@ -1,0 +1,308 @@
+{
+ "data": [
+  {
+   "kind": "AZTenant",
+   "data": {
+    "tenantId": "6a2b3c4d-0000-4000-8000-aaaaaaaaaaa1",
+    "displayName": "Grupo Comercial del Sur S.A.",
+    "defaultDomain": "grupocomercialsur.onmicrosoft.com",
+    "domains": [
+     "grupocomercialsur.onmicrosoft.com",
+     "grupocomercialsur.com"
+    ],
+    "id": "/tenants/6a2b3c4d-0000-4000-8000-aaaaaaaaaaa1"
+   }
+  },
+  {
+   "kind": "AZUser",
+   "data": {
+    "id": "u1",
+    "displayName": "María José Gómez",
+    "userPrincipalName": "m.gomez@grupocomercialsur.com",
+    "accountEnabled": true,
+    "userType": "Member"
+   }
+  },
+  {
+   "kind": "AZUser",
+   "data": {
+    "id": "u2",
+    "displayName": "Ana lucía Torres",
+    "userPrincipalName": "a.torres@grupocomercialsur.com",
+    "accountEnabled": true,
+    "userType": "Member"
+   }
+  },
+  {
+   "kind": "AZUser",
+   "data": {
+    "id": "u3",
+    "displayName": "Juan Pérez-López",
+    "userPrincipalName": "j.perez@grupocomercialsur.com",
+    "accountEnabled": true,
+    "userType": "Member"
+   }
+  },
+  {
+   "kind": "AZUser",
+   "data": {
+    "id": "u4",
+    "displayName": "Alicia Ñúñez",
+    "userPrincipalName": "a.nunez@grupocomercialsur.com",
+    "accountEnabled": true,
+    "userType": "Member"
+   }
+  },
+  {
+   "kind": "AZRole",
+   "data": {
+    "id": "62e90394-69f5-4237-9190-012177145e10",
+    "displayName": "Global Administrator",
+    "isBuiltIn": true,
+    "isEnabled": true,
+    "tenantId": "6a2b3c4d-0000-4000-8000-aaaaaaaaaaa1"
+   }
+  },
+  {
+   "kind": "AZGroup",
+   "data": {
+    "id": "g1",
+    "displayName": "Equipo de Dirección",
+    "securityEnabled": true,
+    "tenantId": "6a2b3c4d-0000-4000-8000-aaaaaaaaaaa1"
+   }
+  },
+  {
+   "kind": "AZGroup",
+   "data": {
+    "id": "g2",
+    "displayName": "Administradores de TI",
+    "securityEnabled": true,
+    "membershipRule": "user.city -eq \"Quito\"",
+    "membershipRuleProcessingState": "On",
+    "tenantId": "6a2b3c4d-0000-4000-8000-aaaaaaaaaaa1"
+   }
+  },
+  {
+   "kind": "AZGroupMember",
+   "data": {
+    "groupId": "g1",
+    "members": [
+     {
+      "member": {
+       "@odata.type": "#microsoft.graph.user",
+       "id": "u2",
+       "displayName": "Ana lucía Torres",
+       "accountEnabled": true
+      }
+     }
+    ]
+   }
+  },
+  {
+   "kind": "AZGroupMember",
+   "data": {
+    "groupId": "g2",
+    "members": [
+     {
+      "member": {
+       "@odata.type": "#microsoft.graph.user",
+       "id": "u4",
+       "displayName": "Alicia Ñúñez",
+       "accountEnabled": true
+      }
+     }
+    ]
+   }
+  },
+  {
+   "kind": "AZRoleAssignment",
+   "data": {
+    "tenantId": "6a2b3c4d-0000-4000-8000-aaaaaaaaaaa1",
+    "roleAssignments": [
+     {
+      "id": "ra1",
+      "roleDefinitionId": "62e90394-69f5-4237-9190-012177145e10",
+      "principalId": "g1",
+      "directoryScopeId": "/"
+     }
+    ]
+   }
+  },
+  {
+   "kind": "AZManagementGroup",
+   "data": {
+    "id": "/providers/Microsoft.Management/managementGroups/mg1",
+    "name": "Grupo Comercial",
+    "tenantId": "6a2b3c4d-0000-4000-8000-aaaaaaaaaaa1",
+    "properties": {
+     "children": [
+      {
+       "id": "/subscriptions/bbbbbbbb-1111-2222-3333-cccccccccccc",
+       "type": "/subscriptions",
+       "name": "Suscripción Producción"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "kind": "AZSubscription",
+   "data": {
+    "id": "/subscriptions/bbbbbbbb-1111-2222-3333-cccccccccccc",
+    "subscriptionId": "bbbbbbbb-1111-2222-3333-cccccccccccc",
+    "displayName": "Suscripción Producción",
+    "state": "Enabled",
+    "tenantId": "6a2b3c4d-0000-4000-8000-aaaaaaaaaaa1"
+   }
+  },
+  {
+   "kind": "AZSubscriptionOwner",
+   "data": {
+    "subscriptionId": "/subscriptions/bbbbbbbb-1111-2222-3333-cccccccccccc",
+    "owners": [
+     {
+      "owner": {
+       "id": "/subscriptions/bbbbbbbb-1111-2222-3333-cccccccccccc/providers/Microsoft.Authorization/roleAssigngments/ra2",
+       "properties": {
+        "principalId": "u1",
+        "principalType": "User",
+        "roleDefinitionId": "/subscriptions/bbbbbbbb-1111-2222-3333-cccccccccccc/providers/Microsoft.Authorization/roleDefinitions/8e3af657-a8ff-443c-a75c-2fe8c4bcb635",
+        "scope": "/subscriptions/bbbbbbbb-1111-2222-3333-cccccccccccc"
+       }
+      }
+     }
+    ],
+    "userAccessAdmins": []
+   }
+  },
+  {
+   "kind": "AZResourceGroup",
+   "data": {
+    "id": "/subscriptions/bbbbbbbb-1111-2222-3333-cccccccccccc/resourceGroups/RG-Produccion",
+    "name": "RG-Produccion",
+    "location": "eastus",
+    "subscriptionId": "/subscriptions/bbbbbbbb-1111-2222-3333-cccccccccccc",
+    "tenantId": "6a2b3c4d-0000-4000-8000-aaaaaaaaaaa1"
+   }
+  },
+  {
+   "kind": "AZKeyVault",
+   "data": {
+    "id": "/subscriptions/bbbbbbbb-1111-2222-3333-cccccccccccc/resourceGroups/RG-Produccion/providers/Microsoft.KeyVault/vaults/vaulta-claves",
+    "name": "Bóveda de Claves",
+    "location": "eastus",
+    "properties": {
+     "enableSoftDelete": true,
+     "enablePurgeProtection": false
+    },
+    "resourceGroup": "/subscriptions/bbbbbbbb-1111-2222-3333-cccccccccccc/resourceGroups/RG-Produccion",
+    "tenantId": "6a2b3c4d-0000-4000-8000-aaaaaaaaaaa1"
+   }
+  },
+  {
+   "kind": "AZKeyVaultAccessPolicy",
+   "data": {
+    "objectId": "u3",
+    "keyVaultId": "/subscriptions/bbbbbbbb-1111-2222-3333-cccccccccccc/resourceGroups/RG-Produccion/providers/Microsoft.KeyVault/vaults/vaulta-claves",
+    "permissions": {
+     "secrets": [
+      "Get",
+      "List"
+     ]
+    }
+   }
+  },
+  {
+   "kind": "AZVM",
+   "data": {
+    "id": "/subscriptions/bbbbbbbb-1111-2222-3333-cccccccccccc/resourceGroups/RG-Produccion/providers/Microsoft.Compute/virtualMachines/srv-contabilidad",
+    "name": "Servidor-Contabilidad",
+    "location": "eastus",
+    "identity": {
+     "principalId": "msi1",
+     "tenantId": "6a2b3c4d-0000-4000-8000-aaaaaaaaaaa1",
+     "type": "SystemAssigned"
+    },
+    "resourceGroupId": "/subscriptions/bbbbbbbb-1111-2222-3333-cccccccccccc/resourceGroups/RG-Produccion",
+    "tenantId": "6a2b3c4d-0000-4000-8000-aaaaaaaaaaa1"
+   }
+  },
+  {
+   "kind": "AZApp",
+   "data": {
+    "id": "objapp1",
+    "appId": "client1",
+    "displayName": "Aplicación de Nómina",
+    "signInAudience": "AzureADMyOrg",
+    "publisherDomain": "grupocomercialsur.com"
+   }
+  },
+  {
+   "kind": "AZServicePrincipal",
+   "data": {
+    "id": "sp1",
+    "appId": "client1",
+    "appDisplayName": "Aplicación de Nómina",
+    "accountEnabled": true,
+    "servicePrincipalType": "Application",
+    "passwordCredentials": [],
+    "keyCredentials": [],
+    "tenantId": "6a2b3c4d-0000-4000-8000-aaaaaaaaaaa1"
+   }
+  },
+  {
+   "kind": "AZServicePrincipalOwner",
+   "data": {
+    "servicePrincipalId": "sp1",
+    "owners": [
+     {
+      "owner": {
+       "@odata.type": "#microsoft.graph.user",
+       "id": "u3",
+       "displayName": "Juan Pérez-López",
+       "accountEnabled": true
+      }
+     }
+    ]
+   }
+  },
+  {
+   "kind": "AZAppRoleAssignment",
+   "data": {
+    "principalId": "u4",
+    "principalType": "User",
+    "principalDisplayName": "Alicia Ñúñez",
+    "resourceId": "sp1",
+    "resourceDisplayName": "Aplicación de Nómina",
+    "appRoleId": "00000000-0000-0000-0000-000000000000"
+   }
+  },
+  {
+   "kind": "AZDevice",
+   "data": {
+    "id": "dev1",
+    "displayName": "Equipo de María",
+    "accountEnabled": true,
+    "operatingSystem": "Windows",
+    "trustType": "AzureAd"
+   }
+  },
+  {
+   "kind": "AZDeviceOwner",
+   "data": {
+    "deviceId": "dev1",
+    "owners": [
+     {
+      "owner": {
+       "@odata.type": "#microsoft.graph.user",
+       "id": "u1",
+       "displayName": "María José Gómez",
+       "accountEnabled": true
+      }
+     }
+    ]
+   }
+  }
+ ]
+}

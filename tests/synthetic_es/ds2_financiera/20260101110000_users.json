@@ -1,0 +1,42 @@
+{
+ "meta": {
+  "type": "users",
+  "count": 3
+ },
+ "data": [
+  {
+   "ObjectIdentifier": "S-1-5-21-4444444444-5555555555-6666666666-1201",
+   "Properties": {
+    "name": "AUDITOR.INTERNO@FINANCIERA.LOCAL",
+    "domain": "FINANCIERA.LOCAL",
+    "samaccountname": "auditor.interno",
+    "enabled": true
+   },
+   "PrimaryGroupSID": "S-1-5-21-4444444444-5555555555-6666666666-513",
+   "Aces": []
+  },
+  {
+   "ObjectIdentifier": "S-1-5-21-4444444444-5555555555-6666666666-1203",
+   "Properties": {
+    "name": "DIRECTOR FINANCIERO@FINANCIERA.LOCAL",
+    "domain": "FINANCIERA.LOCAL",
+    "samaccountname": "director.financiero",
+    "enabled": true,
+    "admincount": true
+   },
+   "PrimaryGroupSID": "S-1-5-21-4444444444-5555555555-6666666666-512",
+   "Aces": []
+  },
+  {
+   "ObjectIdentifier": "S-1-5-21-4444444444-5555555555-6666666666-1204",
+   "Properties": {
+    "name": "JUAN JOSÉ O'CONNOR@FINANCIERA.LOCAL",
+    "domain": "FINANCIERA.LOCAL",
+    "samaccountname": "jjose.oconnor",
+    "enabled": true
+   },
+   "PrimaryGroupSID": "S-1-5-21-4444444444-5555555555-6666666666-513",
+   "Aces": []
+  }
+ ]
+}

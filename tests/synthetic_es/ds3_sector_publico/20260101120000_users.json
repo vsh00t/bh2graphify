@@ -1,0 +1,54 @@
+{
+ "meta": {
+  "type": "users",
+  "count": 4
+ },
+ "data": [
+  {
+   "ObjectIdentifier": "S-1-5-21-7777777777-8888888888-9999999999-1301",
+   "Properties": {
+    "name": "NIÑO.PEREZ@SECT-OR.GOB.EC",
+    "domain": "SECT-OR.GOB.EC",
+    "samaccountname": "niño.perez",
+    "enabled": true,
+    "description": "Contacto: niño.perez@sect-or.gob.ec — Teléf. 0999999999",
+    "email": "niño.perez@sect-or.gob.ec"
+   },
+   "PrimaryGroupSID": "S-1-5-21-7777777777-8888888888-9999999999-513",
+   "Aces": []
+  },
+  {
+   "ObjectIdentifier": "S-1-5-21-7777777777-8888888888-9999999999-1302",
+   "Properties": {
+    "name": "SEÑOR.ÑOÑEZ@SECT-OR.GOB.EC",
+    "domain": "SECT-OR.GOB.EC",
+    "samaccountname": "señor.ñonez",
+    "enabled": true
+   },
+   "PrimaryGroupSID": "S-1-5-21-7777777777-8888888888-9999999999-513",
+   "Aces": []
+  },
+  {
+   "ObjectIdentifier": "S-1-5-21-7777777777-8888888888-9999999999-1303",
+   "Properties": {
+    "name": "TARGET@SECT-OR.GOB.EC",
+    "domain": "SECT-OR.GOB.EC",
+    "samaccountname": "target",
+    "enabled": true
+   },
+   "PrimaryGroupSID": "S-1-5-21-7777777777-8888888888-9999999999-513",
+   "Aces": []
+  },
+  {
+   "ObjectIdentifier": "S-1-5-21-7777777777-8888888888-9999999999-1304",
+   "Properties": {
+    "name": "USER@SECT-OR.GOB.EC",
+    "domain": "SECT-OR.GOB.EC",
+    "samaccountname": "user",
+    "enabled": true
+   },
+   "PrimaryGroupSID": "S-1-5-21-7777777777-8888888888-9999999999-513",
+   "Aces": []
+  }
+ ]
+}

@@ -1,0 +1,44 @@
+{
+  "meta": {"type": "groups", "count": 5, "version": 5, "data_version": 3, "compiler": "3.3.4.0"},
+  "data": [
+    {
+      "ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-512",
+      "Properties": {"domain": "CORP.LOCAL", "name": "DOMAIN ADMINS@CORP.LOCAL", "sam": "domain admins",
+        "admincount": true, "highvalue": true, "description": "Designated administrators of the domain"},
+      "Members": [
+        {"ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-500", "ObjectType": "User", "Name": "ADMINISTRATOR@CORP.LOCAL"}
+      ],
+      "Aces": []
+    },
+    {
+      "ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-1201",
+      "Properties": {"domain": "CORP.LOCAL", "name": "HELPDESK@CORP.LOCAL", "sam": "helpdesk",
+        "description": "IT support staff"},
+      "Members": [
+        {"ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-1104", "ObjectType": "User", "Name": "JSMITH@CORP.LOCAL"},
+        {"ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-1105", "ObjectType": "User", "Name": "HELPDESK1@CORP.LOCAL"}
+      ],
+      "Aces": []
+    },
+    {
+      "ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-1202",
+      "Properties": {"domain": "CORP.LOCAL", "name": "SERVER_ADMINS@CORP.LOCAL", "sam": "server_admins",
+        "description": "Server management"},
+      "Members": [
+        {"ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-1107", "ObjectType": "User", "Name": "SVC_BACKUP@CORP.LOCAL"}
+      ],
+      "Aces": [
+        {"RightName": "WriteDacl", "PrincipalSID": "S-1-5-21-3623811015-3361044348-30300820-1105", "PrincipalType": "User", "IsInherited": false, "AceType": "WriteDacl"},
+        {"RightName": "AddMember", "PrincipalSID": "S-1-5-21-3623811015-3361044348-30300820-1201", "PrincipalType": "Group", "IsInherited": false, "AceType": "Extended"}
+      ]
+    },
+    {
+      "ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-1203",
+      "Properties": {"domain": "CORP.LOCAL", "name": "GMSA_READERS@CORP.LOCAL", "sam": "gmsa_readers"},
+      "Members": [
+        {"ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-1106", "ObjectType": "User", "Name": "SVC_MSSQL@CORP.LOCAL"}
+      ],
+      "Aces": []
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+ "meta": {
+  "type": "gpos",
+  "count": 1
+ },
+ "data": [
+  {
+   "ObjectIdentifier": "22222222-aaaa-bbbb-cccc-000000000002",
+   "Properties": {
+    "name": "Directiva de Contraseñas",
+    "domain": "FINANCIERA.LOCAL",
+    "gpcpath": "\\\\financiera.local\\sysvol"
+   },
+   "Aces": []
+  }
+ ]
+}

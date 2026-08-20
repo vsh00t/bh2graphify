@@ -1,0 +1,26 @@
+{
+  "meta": {"type": "ous", "count": 1, "version": 5, "data_version": 3, "compiler": "3.3.4.0"},
+  "data": [
+    {
+      "ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-3101",
+      "Properties": {"domain": "CORP.LOCAL", "name": "OU=SERVERS@CORP.LOCAL",
+        "distinguishedname": "OU=Servers,DC=corp,DC=local", "description": "Member servers"},
+      "ChildObjects": [
+        {"ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-2103", "ObjectType": "Computer"},
+        {"ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-2104", "ObjectType": "Computer"}
+      ],
+      "Links": [
+        {"GUID": "{7C5E4B2A-9911-4C44-A1D0-B3E2B1B4E5F6}", "IsEnforced": false}
+      ],
+      "GPOChanges": {
+        "LocalAdmins": [],
+        "RDPUsers": [],
+        "PSRemoteUsers": [
+          {"ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-1105", "Name": "HELPDESK1@CORP.LOCAL"}
+        ],
+        "DcomUsers": []
+      },
+      "Aces": []
+    }
+  ]
+}

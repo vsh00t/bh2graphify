@@ -1,0 +1,64 @@
+{
+ "meta": {
+  "type": "groups",
+  "count": 4
+ },
+ "data": [
+  {
+   "ObjectIdentifier": "S-1-5-21-7777777777-8888888888-9999999999-512",
+   "Properties": {
+    "name": "DOMAIN ADMINS@SECT-OR.GOB.EC",
+    "domain": "SECT-OR.GOB.EC",
+    "admincount": true
+   },
+   "Members": [],
+   "Aces": [
+    {
+     "PrincipalSID": "S-1-5-21-7777777777-8888888888-9999999999-1305",
+     "PrincipalType": "Group",
+     "RightName": "AddMember",
+     "IsInherited": false,
+     "AceType": "All"
+    }
+   ]
+  },
+  {
+   "ObjectIdentifier": "S-1-5-21-7777777777-8888888888-9999999999-1305",
+   "Properties": {
+    "name": "GRUPO DE APOYO TÉCNICO@SECT-OR.GOB.EC",
+    "domain": "SECT-OR.GOB.EC"
+   },
+   "Members": [
+    {
+     "ObjectIdentifier": "S-1-5-21-7777777777-8888888888-9999999999-1301",
+     "ObjectType": "User"
+    },
+    {
+     "ObjectIdentifier": "S-1-5-21-7777777777-8888888888-9999999999-1302",
+     "ObjectType": "User"
+    }
+   ],
+   "Aces": []
+  },
+  {
+   "ObjectIdentifier": "S-1-5-21-7777777777-8888888888-9999999999-1307",
+   "Properties": {
+    "name": "ADMINISTRADOR DE SISTEMAS@SECT-OR.GOB.EC",
+    "domain": "SECT-OR.GOB.EC"
+   },
+   "Members": [],
+   "Aces": []
+  },
+  {
+   "ObjectIdentifier": "SECT-OR.GOB.EC-S-1-5-32-556",
+   "Properties": {
+    "name": "NETWORK CONFIGURATION OPERATORS@SECT-OR.GOB.EC",
+    "domain": "SECT-OR.GOB.EC",
+    "reconcile": false
+   },
+   "Members": [],
+   "ContainedBy": null,
+   "Aces": []
+  }
+ ]
+}

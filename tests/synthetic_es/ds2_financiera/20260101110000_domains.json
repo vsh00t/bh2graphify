@@ -1,0 +1,28 @@
+{
+ "meta": {
+  "type": "domains",
+  "count": 1
+ },
+ "data": [
+  {
+   "ObjectIdentifier": "S-1-5-21-4444444444-5555555555-6666666666",
+   "Properties": {
+    "name": "FINANCIERA.LOCAL",
+    "functionallevel": 2016,
+    "domainsid": "S-1-5-21-4444444444-5555555555-6666666666"
+   },
+   "Trusts": [
+    {
+     "TargetDomainSid": "S-1-5-21-1212121212-1313131313-1414141414",
+     "TargetDomainName": "BANCO-ALIADO.COM",
+     "TrustDirection": "Bidirectional",
+     "TrustType": "External",
+     "IsTransitive": true,
+     "SidFilteringEnabled": false
+    }
+   ],
+   "ChildObjects": [],
+   "Aces": []
+  }
+ ]
+}

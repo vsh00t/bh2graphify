@@ -1,0 +1,30 @@
+{
+ "meta": {
+  "type": "computers",
+  "count": 1
+ },
+ "data": [
+  {
+   "ObjectIdentifier": "S-1-5-21-7777777777-8888888888-9999999999-1306",
+   "Properties": {
+    "name": "SERVIDOR Nº7 — CONTABILIDAD.sect-or.gob.ec",
+    "domain": "SECT-OR.GOB.EC",
+    "enabled": true,
+    "operatingsystem": "Windows Server 2019 Standard"
+   },
+   "PrimaryGroupSID": "S-1-5-21-7777777777-8888888888-9999999999-513",
+   "Sessions": {
+    "Collected": true,
+    "FailureReason": null,
+    "Results": []
+   },
+   "PrivilegedSessions": {
+    "Collected": true,
+    "FailureReason": null,
+    "Results": []
+   },
+   "LocalGroups": [],
+   "Aces": []
+  }
+ ]
+}

@@ -1,0 +1,85 @@
+{
+  "meta": {"type": "computers", "count": 4, "version": 5, "data_version": 3, "compiler": "3.3.4.0"},
+  "data": [
+    {
+      "ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-2101",
+      "Properties": {
+        "domain": "CORP.LOCAL", "name": "DC01.CORP.LOCAL", "domainsid": "S-1-5-21-3623811015-3361044348-30300820",
+        "distinguishedname": "CN=DC01,OU=Domain Controllers,DC=corp,DC=local",
+        "enabled": true, "unconstraineddelegation": true, "haslaps": true,
+        "operatingsystem": "Windows Server 2022 Datacenter", "pwdlastset": 133501920000000000
+      },
+      "PrimaryGroupSID": "S-1-5-21-3623811015-3361044348-30300820-516",
+      "Sessions": [
+        {"ComputerID": "S-1-5-21-3623811015-3361044348-30300820-2101", "Computer": "DC01.CORP.LOCAL",
+         "UserID": "S-1-5-21-3623811015-3361044348-30300820-500", "User": "CORP\\administrator"}
+      ],
+      "LocalGroups": [
+        {"ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-2101-local-544", "Name": "ADMINISTRATORS",
+         "Members": [
+           {"ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-1202", "ObjectType": "Group", "Name": "SERVER_ADMINS@CORP.LOCAL"},
+           {"ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-500", "ObjectType": "User", "Name": "ADMINISTRATOR@CORP.LOCAL"}
+         ]}
+      ],
+      "Aces": [
+        {"RightName": "GenericAll", "PrincipalSID": "S-1-5-21-3623811015-3361044348-30300820-512", "PrincipalType": "Group", "IsInherited": true, "AceType": "All"}
+      ]
+    },
+    {
+      "ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-2102",
+      "Properties": {
+        "domain": "CORP.LOCAL", "name": "WS-HELP.CORP.LOCAL",
+        "distinguishedname": "CN=WS-HELP,CN=Computers,DC=corp,DC=local",
+        "enabled": true, "unconstraineddelegation": false, "haslaps": false,
+        "operatingsystem": "Windows 11 Pro"
+      },
+      "PrimaryGroupSID": "S-1-5-21-3623811015-3361044348-30300820-515",
+      "Sessions": [
+        {"ComputerID": "S-1-5-21-3623811015-3361044348-30300820-2102", "Computer": "WS-HELP.CORP.LOCAL",
+         "UserID": "S-1-5-21-3623811015-3361044348-30300820-1105", "User": "CORP\\helpdesk1"}
+      ],
+      "LocalGroups": [
+        {"ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-2102-local-544", "Name": "ADMINISTRATORS",
+         "Members": [
+           {"ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-1107", "ObjectType": "User", "Name": "SVC_BACKUP@CORP.LOCAL"}
+         ]},
+        {"ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-2102-local-555", "Name": "REMOTE DESKTOP USERS",
+         "Members": [
+           {"ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-1201", "ObjectType": "Group", "Name": "HELPDESK@CORP.LOCAL"}
+         ]}
+      ],
+      "Aces": [
+        {"RightName": "GenericAll", "PrincipalSID": "S-1-5-21-3623811015-3361044348-30300820-1107", "PrincipalType": "User", "IsInherited": false, "AceType": "All"}
+      ]
+    },
+    {
+      "ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-2103",
+      "Properties": {
+        "domain": "CORP.LOCAL", "name": "SRV-SQL.CORP.LOCAL",
+        "distinguishedname": "CN=SRV-SQL,OU=Servers,DC=corp,DC=local",
+        "enabled": true, "unconstraineddelegation": false, "operatingsystem": "Windows Server 2019 Standard"
+      },
+      "PrimaryGroupSID": "S-1-5-21-3623811015-3361044348-30300820-515",
+      "Sessions": [],
+      "AllowedToDelegate": [],
+      "Aces": [
+        {"RightName": "GenericWrite", "PrincipalSID": "S-1-5-21-3623811015-3361044348-30300820-1106", "PrincipalType": "User", "IsInherited": false, "AceType": "Write"}
+      ]
+    },
+    {
+      "ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-2104",
+      "Properties": {
+        "domain": "CORP.LOCAL", "name": "SRV-WEB.CORP.LOCAL",
+        "distinguishedname": "CN=SRV-WEB,OU=Servers,DC=corp,DC=local",
+        "enabled": true, "unconstraineddelegation": false,
+        "resourcebasedconstraineddelegation": true, "operatingsystem": "Windows Server 2022 Standard"
+      },
+      "PrimaryGroupSID": "S-1-5-21-3623811015-3361044348-30300820-515",
+      "Sessions": [],
+      "AllowedToAct": [
+        {"ObjectIdentifier": "S-1-5-21-3623811015-3361044348-30300820-1201", "ObjectType": "Group", "Name": "HELPDESK@CORP.LOCAL"}
+      ],
+      "Aces": []
+    }
+  ]
+}

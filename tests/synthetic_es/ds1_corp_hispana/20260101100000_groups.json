@@ -1,0 +1,59 @@
+{
+ "meta": {
+  "type": "groups",
+  "count": 4
+ },
+ "data": [
+  {
+   "ObjectIdentifier": "S-1-5-21-1111111111-2222222222-3333333333-512",
+   "Properties": {
+    "name": "DOMAIN ADMINS@EMPRESA.COM.EC",
+    "domain": "EMPRESA.COM.EC",
+    "admincount": true
+   },
+   "Members": [
+    {
+     "ObjectIdentifier": "S-1-5-21-1111111111-2222222222-3333333333-500",
+     "ObjectType": "User"
+    }
+   ],
+   "Aces": []
+  },
+  {
+   "ObjectIdentifier": "S-1-5-21-1111111111-2222222222-3333333333-1102",
+   "Properties": {
+    "name": "ADMINISTRADORES DE NÓMINA@EMPRESA.COM.EC",
+    "domain": "EMPRESA.COM.EC",
+    "description": "Gestión de sistemas de nómina"
+   },
+   "Members": [],
+   "Aces": [
+    {
+     "PrincipalSID": "S-1-5-21-1111111111-2222222222-3333333333-1101",
+     "PrincipalType": "User",
+     "RightName": "WriteDacl",
+     "IsInherited": false,
+     "AceType": "All"
+    }
+   ]
+  },
+  {
+   "ObjectIdentifier": "S-1-5-21-1111111111-2222222222-3333333333-1104",
+   "Properties": {
+    "name": "ADDSELF@EMPRESA.COM.EC",
+    "domain": "EMPRESA.COM.EC"
+   },
+   "Members": [],
+   "Aces": []
+  },
+  {
+   "ObjectIdentifier": "S-1-5-21-1111111111-2222222222-3333333333-1105",
+   "Properties": {
+    "name": "USUARIO@EMPRESA.COM.EC",
+    "domain": "EMPRESA.COM.EC"
+   },
+   "Members": [],
+   "Aces": []
+  }
+ ]
+}
