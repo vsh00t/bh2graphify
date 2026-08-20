@@ -20,9 +20,13 @@ no es validación). Las expectativas viven en validar.py.
 Uso:  python3 generar.py   (escribe ds_*/ dentro de este directorio)
 """
 import json
+import os
 from pathlib import Path
 
-OUT = Path(__file__).parent
+# Destino configurable: validar.py fija BH2G_SYNTH_OUT a un tmpdir para que la
+# suite sea hermética (no sobrescribe nada versionado). Sin la env var, escribe
+# junto a este archivo (uso manual: `python3 generar.py`).
+OUT = Path(os.environ.get("BH2G_SYNTH_OUT") or Path(__file__).parent)
 
 def write(path: Path, meta_type: str, items: list):
     path.parent.mkdir(parents=True, exist_ok=True)

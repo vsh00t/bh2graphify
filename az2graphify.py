@@ -120,6 +120,10 @@ class AZGraph:
         self.appidx: dict[str, str] = {}        # appId (client) → objectId
         self.stats: dict[str, int] = defaultdict(int)
         self.unresolved: dict[str, int] = defaultdict(int)
+        # identidades sincronizadas desde AD on-prem (para correlación híbrida).
+        # NO se emiten al grafo anonimizado (el SID on-prem es correlacionable) —
+        # solo las usa el orquestador en el plano de-anon (RESUMEN del operador).
+        self.hybrid: dict[str, dict] = {}       # objectId AZ → {onprem_sid, upn}
 
     def add_node(self, nid: str, kind: str, name: str | None = None, props: dict | None = None):
         if not nid:
@@ -168,27 +172,34 @@ class AZGraph:
 
     # — parseo —
     def parse(self, path: Path):
-        with open(path, encoding="utf-8", errors="replace") as f:
-            doc = json.load(f)
-        entries = doc.get("data") if isinstance(doc, dict) else doc
-        if not isinstance(entries, list):
-            sys.exit("[!] formato AzureHound inesperado")
-        print(f"[*] {len(entries)} entradas AzureHound")
+        self.parse_many([path])
+
+    def parse_many(self, paths):
+        """Une varios archivos AzureHound en un solo grafo. Las 2 pasadas
+        (nodos → edges) corren sobre TODAS las entradas juntas, así los edges de
+        un archivo resuelven nodos declarados en otro (colecciones divididas)."""
+        paths = list(paths)
+        entries = []
+        for path in paths:
+            with open(path, encoding="utf-8", errors="replace") as f:
+                doc = json.load(f)
+            e = doc.get("data") if isinstance(doc, dict) else doc
+            if isinstance(e, list):
+                entries.extend(e)
+        if not entries:
+            sys.exit("[!] formato AzureHound inesperado / sin entradas")
+        print(f"[*] {len(entries)} entradas AzureHound ({len(paths)} archivo(s))")
         # pasada 1: nodos + índices (appId→objId)
         for e in entries:
-            k = e.get("kind", "")
-            d = e.get("data") or {}
-            if not isinstance(d, dict):
-                continue
-            self.stats[k] += 1
-            self._parse_node(k, d)
+            k, d = e.get("kind", ""), e.get("data") or {}
+            if isinstance(d, dict):
+                self.stats[k] += 1
+                self._parse_node(k, d)
         # pasada 2: edges (necesita índices completos)
         for e in entries:
-            k = e.get("kind", "")
-            d = e.get("data") or {}
-            if not isinstance(d, dict):
-                continue
-            self._parse_edge(k, d)
+            k, d = e.get("kind", ""), e.get("data") or {}
+            if isinstance(d, dict):
+                self._parse_edge(k, d)
         print(f"[*] Nodos: {len(self.nodes)} | edges: {len(self.edges)}")
 
     def _parse_node(self, k: str, d: dict):
@@ -198,9 +209,14 @@ class AZGraph:
                 if dom:
                     self.tenant_domains.add(str(dom).lower())
         elif k == "AZUser":
+            synced = bool(d.get("onPremisesImmutableId") or d.get("onPremisesSecurityIdentifier"))
             props = {"accountenabled": d.get("accountEnabled"), "usertype": d.get("userType"),
-                     "onpremsynced": bool(d.get("onPremisesImmutableId"))}
+                     "onpremsynced": synced}
             self.add_node(d.get("id"), "user", d.get("displayName"), props)
+            if synced and d.get("id"):
+                self.hybrid[d["id"]] = {
+                    "onprem_sid": d.get("onPremisesSecurityIdentifier"),
+                    "upn": (d.get("userPrincipalName") or "").lower() or None}
         elif k == "AZGroup":
             props = {"securityenabled": d.get("securityEnabled"),
                      "dynamic": bool(d.get("membershipRule"))}
@@ -435,9 +451,11 @@ def build_graph(az: AZGraph, anon: AZAnonymizer | None) -> dict:
 # Attack paths Entra/ARM
 # ──────────────────────────────────────────────────────────────────────────────
 def attack_paths(graph: dict, max_hops: int = 5, top: int = 15) -> list[dict]:
-    adj: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    # Grafo transpuesto + un BFS inverso por target — O(T·(V+E)) en vez de un BFS
+    # forward por nodo. Misma salida (shortest path dirigido a cada target).
+    radj: dict[str, list[tuple[str, str]]] = defaultdict(list)
     for lk in graph["links"]:
-        adj[lk["source"]].append((lk["target"], lk["relation"]))
+        radj[lk["target"]].append((lk["source"], lk["relation"]))
 
     node_types = {n["id"]: n.get("type") for n in graph["nodes"]}
     targets = {}
@@ -451,32 +469,39 @@ def attack_paths(graph: dict, max_hops: int = 5, top: int = 15) -> list[dict]:
         elif n.get("type") == "kv":
             targets[n["id"]] = "key vault (access policy/RBAC)"
 
-    results = []
-    for start, stype in node_types.items():
-        if stype not in ("user", "sp", "group"):
-            continue
-        dist = {start: 0}
+    dist_by_t: dict[str, dict[str, int]] = {}
+    prev_by_t: dict[str, dict[str, tuple[str, str]]] = {}
+    for t in targets:
+        dist = {t: 0}
         prev: dict[str, tuple[str, str]] = {}
-        q = deque([start])
+        q = deque([t])
         while q:
             cur = q.popleft()
             if dist[cur] >= max_hops:
                 continue
-            for nxt, rel in adj[cur]:
-                if nxt in dist:
+            for pnode, rel in radj.get(cur, ()):  # pnode -[rel]-> cur (forward)
+                if pnode in dist:
                     continue
-                dist[nxt] = dist[cur] + 1
-                prev[nxt] = (cur, rel)
-                q.append(nxt)
-        hit = sorted(((dist[t], t) for t in targets if t in dist and t != start))
+                dist[pnode] = dist[cur] + 1
+                prev[pnode] = (cur, rel)
+                q.append(pnode)
+        dist_by_t[t] = dist
+        prev_by_t[t] = prev
+
+    results = []
+    for start, stype in node_types.items():
+        if stype not in ("user", "sp", "group"):
+            continue
+        hit = sorted((dist_by_t[t][start], t) for t in targets
+                     if start in dist_by_t[t] and t != start)
         if not hit:
             continue
         for d, t in hit[:1]:
-            hops, cur = [], t
-            while cur != start:
-                p, rel = prev[cur]
-                hops.append(f"{p} -[{rel}]-> {cur}")
-                cur = p
+            hops, cur = [], start
+            while cur != t:
+                nxt, rel = prev_by_t[t][cur]
+                hops.append(f"{cur} -[{rel}]-> {nxt}")
+                cur = nxt
             results.append({"from": start, "target": t, "why": targets[t], "hops": d,
                             "path": " | ".join(hops)})
     results.sort(key=lambda r: (r["hops"], r["from"]))

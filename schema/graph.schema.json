@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/bh2graphify/schema/graph.schema.json",
+  "title": "bh2graphify graph.json",
+  "description": "Grafo node-link (compatible graphify) emitido por bh2graphify.py y az2graphify.py. Formato plano, LLM-native. Los nodos e links admiten props técnicas adicionales (whitelist SAFE_PROPS); la PII se dropea. Cuando anonymized=true, los ids son alias deterministas.",
+  "type": "object",
+  "required": ["directed", "multigraph", "graph", "nodes", "links"],
+  "additionalProperties": false,
+  "properties": {
+    "directed": { "const": true },
+    "multigraph": { "const": true },
+    "graph": {
+      "type": "object",
+      "required": ["source", "anonymized", "node_count", "edge_count"],
+      "properties": {
+        "source": { "enum": ["sharphound", "azurehound"] },
+        "anonymized": { "type": "boolean" },
+        "node_count": { "type": "integer", "minimum": 0 },
+        "edge_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "type"],
+        "properties": {
+          "id": { "type": "string", "description": "Identificador único. Alias (USER_0001, COMP_0003.DOM_01, DOMAIN_ADMINS@DOM_01…) si anonymized." },
+          "label": { "type": "string" },
+          "type": {
+            "type": "string",
+            "description": "Categoría del nodo.",
+            "examples": ["user", "group", "computer", "domain", "gpo", "ou", "container",
+              "certtemplate", "enterpriseca", "rootca", "aiaca", "ntauthstore",
+              "tenant", "app", "sp", "device", "role", "builtinrole",
+              "mg", "sub", "rg", "vm", "vmss", "kv", "automation", "function", "logic", "aks", "acr", "web"]
+          },
+          "kerberoastable": { "type": "boolean", "description": "SharpHound: user con SPN." }
+        },
+        "additionalProperties": true
+      }
+    },
+    "links": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["source", "target", "relation"],
+        "properties": {
+          "source": { "type": "string", "description": "id del nodo origen (quien tiene el control)." },
+          "target": { "type": "string", "description": "id del nodo destino (el objeto controlado)." },
+          "relation": {
+            "type": "string",
+            "description": "Relación dirigida source→target. MemberOf/AdminTo/ACLs/HasRole/Owner/Enroll = control. HasSession/HasPrivSession = reversible en ataque. Contains/GpLink/Trusts = placement, NO control.",
+            "examples": ["MemberOf", "AdminTo", "CanRDP", "CanPSRemote", "CanDCOM",
+              "HasSession", "HasPrivSession", "GenericAll", "GenericWrite", "WriteDacl",
+              "WriteOwner", "Owns", "ForceChangePassword", "AllExtendedRights", "AddMember",
+              "AddSelf", "ReadGMSAPassword", "DCSync", "GetChanges", "GetChangesAll",
+              "AllowedToDelegate", "AllowedToAct", "SPNTarget", "HasSIDHistory", "Trusts",
+              "Contains", "GpLink", "Enroll", "AutoEnroll", "EnabledTemplate", "HostsCA",
+              "HasRole", "AppRole", "KVAccessPolicy", "Owner", "Contributor", "Reader",
+              "UserAccessAdmin", "VMAdminLogin", "HasManagedIdentity"]
+          },
+          "weight": { "type": "number" },
+          "confidence": { "enum": ["EXTRACTED", "INFERRED"] }
+        },
+        "additionalProperties": true
+      }
+    }
+  }
+}

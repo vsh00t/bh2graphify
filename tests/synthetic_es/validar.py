@@ -9,7 +9,9 @@ Corre bh2graphify (ds1-ds3) y az2graphify (ds4-ds5) en dos modos por dataset:
 Exit 0 = todo PASS. Exit 1 = al menos un FAIL.
 """
 import json
+import os
 import sys
+import tempfile
 import traceback
 from pathlib import Path
 
@@ -19,7 +21,10 @@ sys.path.insert(0, str(HERE))
 import bh2graphify as bh                      # noqa: E402
 import az2graphify as az                      # noqa: E402
 
-SYN = Path(__file__).parent
+# Suite hermética: los datasets se generan en un tmpdir (no se toca nada
+# versionado). Fijar la env var ANTES de importar/usar generar.py.
+os.environ.setdefault("BH2G_SYNTH_OUT", tempfile.mkdtemp(prefix="bh2g_synth_"))
+SYN = Path(os.environ["BH2G_SYNTH_OUT"])
 RESULTS = []
 
 
@@ -218,6 +223,114 @@ def caso_ds5():
     check("ds5", "RBAC Contributor resuelto por GUID → FunctionApp", e5)
 
 
+def caso_mejoras():
+    print("\n== MEJORAS (GPO scoping, RIDs, ESC3/ESC7, reverse-BFS, híbrido) ==")
+    import analyze_zip as azip
+
+    def e_gpo_affected():
+        # GPOChanges con AffectedComputers → AdminTo SOLO al equipo afectado
+        DOM = "S-1-5-21-10-20-30"
+        g = bh.BHGraph()
+        g.add_node(f"{DOM}-1000", "computer", "PC-AFECTADO")
+        g.add_node(f"{DOM}-2000", "computer", "PC-OTRO")
+        g._parse_domain({"ObjectIdentifier": DOM, "Properties": {"name": "A.LOCAL"},
+            "GPOChanges": {"LocalAdmins": [{"ObjectIdentifier": f"{DOM}-1101", "ObjectType": "User"}],
+                           "AffectedComputers": [{"ObjectIdentifier": f"{DOM}-1000", "ObjectType": "Computer"}]}}, "domain")
+        adm = [(e["src"], e["dst"]) for e in g.edges if e["rel"] == "AdminTo"]
+        return (adm == [(f"{DOM}-1101", f"{DOM}-1000")],
+                f"AdminTo={adm} (debe ir solo a PC-AFECTADO)")
+    check("mej", "GPOChanges respeta AffectedComputers (no fan-out)", e_gpo_affected)
+
+    def e_gpo_xdom():
+        # domain-level sin AffectedComputers NO debe cruzar dominios
+        DA, DB = "S-1-5-21-1-2-3", "S-1-5-21-9-9-9"
+        g = bh.BHGraph()
+        g.add_node(f"{DA}-1000", "computer", "PC-A")
+        g.add_node(f"{DB}-1000", "computer", "PC-B")
+        g._parse_domain({"ObjectIdentifier": DA, "Properties": {"name": "A.LOCAL"},
+            "GPOChanges": {"LocalAdmins": [{"ObjectIdentifier": f"{DA}-1101", "ObjectType": "User"}]}}, "domain")
+        dsts = {e["dst"] for e in g.edges if e["rel"] == "AdminTo"}
+        return (dsts == {f"{DA}-1000"}, f"AdminTo dsts={dsts} (nunca PC-B de dom B)")
+    check("mej", "GPOChanges domain-level no cruza dominios", e_gpo_xdom)
+
+    def e_gpo_rdp():
+        # clave real de SharpHound: RemoteDesktopUsers (no 'RDPUsers') → CanRDP
+        DOM = "S-1-5-21-5-5-5"
+        g = bh.BHGraph()
+        g.add_node(f"{DOM}-1000", "computer", "PC")
+        g._parse_domain({"ObjectIdentifier": DOM, "Properties": {"name": "R.LOCAL"},
+            "GPOChanges": {"RemoteDesktopUsers": [{"ObjectIdentifier": f"{DOM}-1200", "ObjectType": "User"}],
+                           "AffectedComputers": [{"ObjectIdentifier": f"{DOM}-1000", "ObjectType": "Computer"}]}}, "domain")
+        return (any(e["rel"] == "CanRDP" for e in g.edges),
+                f"rels={[e['rel'] for e in g.edges]}")
+    check("mej", "GPOChanges reconoce RemoteDesktopUsers → CanRDP", e_gpo_rdp)
+
+    def e_rids():
+        anon = bh.Anonymizer()
+        S = "S-1-5-21-1-2-3-"
+        a526 = anon.alias(S + "526", "group", "KEY ADMINS")
+        a527 = anon.alias(S + "527", "group", "ENTERPRISE KEY ADMINS")
+        return (a526 == "KEY_ADMINS" and a527 == "ENTERPRISE_KEY_ADMINS",
+                f"526→{a526} 527→{a527}")
+    check("mej", "RIDs well-known nuevos (Key Admins 526/527) preservados", e_rids)
+
+    def e_esc3():
+        gr = {"nodes": [{"id": "TPL_X", "type": "certtemplate",
+                         "ekus": ["Certificate Request Agent"], "requiresmanagerapproval": False}],
+              "links": [{"source": "USER_1", "target": "TPL_X", "relation": "Enroll"}]}
+        wins = bh.adcs_quickwins(gr)
+        return (any("ESC3" in w["esc"] for w in wins), f"wins={wins}")
+    check("mej", "ADCS ESC3 (Certificate Request Agent) detectado", e_esc3)
+
+    def e_esc7():
+        gr = {"nodes": [{"id": "ECA_1", "type": "enterpriseca"}],
+              "links": [{"source": "USER_9", "target": "ECA_1", "relation": "Acl_Manageca"}]}
+        f = bh.adcs_ca_findings(gr)
+        return (bool(f) and f[0]["controllers"][0]["esc"] == "ESC7", f"ca_findings={f}")
+    check("mej", "ADCS ESC7 (ManageCA sobre la CA) detectado", e_esc7)
+
+    def e_path_order():
+        # el path debe leerse atacante→objetivo (start primero)
+        plain, paths, *_ = run_bh(SYN / "ds1_corp_hispana")
+        r = path_hit(paths, "soporte.nomina", "WriteDacl")
+        first = r["path"].split(" | ")[0] if r else ""
+        return ("SOPORTE.NOMINA" in first.split(" -[")[0].upper(),
+                f"primer paso: {first}")
+    check("mej", "reverse-BFS: path en orden natural (start primero)", e_path_order)
+
+    def e_az_merge():
+        # parse_many une 2 archivos: nodo en uno, edge en otro
+        import tempfile as _t
+        d = Path(_t.mkdtemp())
+        (d / "a.json").write_text(json.dumps({"data": [
+            {"kind": "AZUser", "data": {"id": "u1", "displayName": "Alpha"}},
+            {"kind": "AZRole", "data": {"id": "r1", "displayName": "Global Administrator", "isBuiltIn": True}}]}))
+        (d / "b.json").write_text(json.dumps({"data": [
+            {"kind": "AZRoleAssignment", "data": {"roleAssignments": [
+                {"id": "ra", "roleDefinitionId": "r1", "principalId": "u1", "directoryScopeId": "/"}]}}]}))
+        g = az.AZGraph()
+        g.parse_many([d / "a.json", d / "b.json"])
+        return (any(e["rel"] == "HasRole" and e["src"] == "u1" for e in g.edges),
+                f"edges={[(e['src'], e['rel'], e['dst']) for e in g.edges]}")
+    check("mej", "AZ merge multi-archivo (edge cruza archivos)", e_az_merge)
+
+    def e_hybrid():
+        # correlación por SID on-prem
+        bg = bh.BHGraph()
+        SID = "S-1-5-21-7-7-7-1104"
+        bg.add_node("S-1-5-21-7-7-7", "domain", "corp.local")
+        bg.add_node(SID, "user", "JSMITH@CORP.LOCAL")
+        ag = az.AZGraph()
+        ag.tenant_domains = {"corp.local"}
+        ag.nodes["az1"] = {"kind": "user", "name": "John Smith", "props": {}}
+        ag.hybrid["az1"] = {"onprem_sid": SID, "upn": "jsmith@corp.local"}
+        corr = azip.hybrid_correlation(bg, ag)
+        ok = (corr["common_domains"] == ["corp.local"] and
+              corr["identities"] and corr["identities"][0]["via"] == "SID on-prem")
+        return (ok, f"corr={corr}")
+    check("mej", "correlación híbrida cloud↔on-prem por SID on-prem", e_hybrid)
+
+
 # helper para ds5 e4: reconstruir el map (el runner no lo devuelve)
 _anon_map_cache = {}
 def az_anon_map(g):
@@ -236,7 +349,7 @@ if __name__ == "__main__":
     from generar import ds1, ds2, ds3, ds4, ds5
     ds1(); ds2(); ds3(); ds4(); ds5()
 
-    for fn in (caso_ds1, caso_ds2, caso_ds3, caso_ds4, caso_ds5):
+    for fn in (caso_ds1, caso_ds2, caso_ds3, caso_ds4, caso_ds5, caso_mejoras):
         fn()
 
     npass = sum(1 for *_, ok, _ in RESULTS if ok)

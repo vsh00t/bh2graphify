@@ -3,3 +3,4 @@ tests/out/
 graphify-out/
 *.pyc
 .DS_Store
+tests/synthetic_es/ds*/

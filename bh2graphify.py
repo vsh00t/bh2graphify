@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import stat
 import sys
 from collections import defaultdict, deque
@@ -31,16 +30,24 @@ from pathlib import Path
 # Well-known RIDs (estructurales, no PII — preservarlos mantiene el análisis)
 # ──────────────────────────────────────────────────────────────────────────────
 WELLKNOWN_RIDS = {
+    498: "ENTERPRISE_READ_ONLY_DOMAIN_CONTROLLERS",
     500: "ADMINISTRATOR",
     501: "GUEST",
     502: "KRBTGT",
     512: "DOMAIN_ADMINS",
     513: "DOMAIN_USERS",
+    514: "DOMAIN_GUESTS",
+    515: "DOMAIN_COMPUTERS",
     516: "DOMAIN_CONTROLLERS",
     517: "CERT_PUBLISHERS",
     518: "SCHEMA_ADMINS",
     519: "ENTERPRISE_ADMINS",
     520: "GROUP_POLICY_CREATOR_OWNERS",
+    521: "READ_ONLY_DOMAIN_CONTROLLERS",
+    522: "CLONEABLE_DOMAIN_CONTROLLERS",
+    525: "PROTECTED_USERS",
+    526: "KEY_ADMINS",             # Shadow Credentials (msDS-KeyCredentialLink)
+    527: "ENTERPRISE_KEY_ADMINS",  # idem, forest-wide
     553: "RAS_SERVERS",
 }
 WELLKNOWN_SIDS = {
@@ -106,7 +113,7 @@ SAFE_PROPS = {
     "authenticationenabled", "enrolleesuppliessubject", "requiresmanagerapproval",
     "authorizedsignatures", "certificatenameflag", "applicationpolicies",
     "certificateapplicationpolicy", "enrollmentflag", "validityperiod",
-    "renewalperiod", "schemaversion", "nosecurityextension", "hasspn",
+    "renewalperiod", "schemaversion", "nosecurityextension", "hasspn", "ekus",
 }
 EPOCH_PROPS = {"pwdlastset", "lastlogon", "lastlogontimestamp"}
 
@@ -270,6 +277,54 @@ class BHGraph:
             return v.get("Results") or []
         return v or []
 
+    # GPOChanges: (clave SharpHound v3, alias legacy, relation)
+    _GPO_CATS = (("LocalAdmins", None, "AdminTo"),
+                 ("RemoteDesktopUsers", "RDPUsers", "CanRDP"),
+                 ("PSRemoteUsers", None, "CanPSRemote"),
+                 ("DcomUsers", None, "CanDCOM"))
+
+    @staticmethod
+    def _dom_prefix(sid: str) -> str:
+        """S-1-5-21-A-B-C de un SID de dominio (para agrupar/filtrar por dominio)."""
+        if not sid:
+            return ""
+        base = sid[sid.rfind("S-1-"):] if "S-1-" in sid else sid
+        parts = base.split("-")
+        return "-".join(parts[:7]) if len(parts) >= 8 and \
+            parts[:4] == ["S", "1", "5", "21"] else base
+
+    def _gpo_affected(self, gpc: dict) -> list[str] | None:
+        """SIDs de las computadoras afectadas si SharpHound las trae (v3);
+        None si el objeto GPOChanges no incluye AffectedComputers."""
+        aff = gpc.get("AffectedComputers")
+        if aff is None:
+            return None
+        out = []
+        for c in aff:
+            csid, cname = self._resolve(c)
+            if csid:
+                self.add_node(csid, "computer", cname)
+                out.append(csid)
+        return out
+
+    def _apply_gpochanges(self, gpc: dict, targets, via: str):
+        """Enlaza principals de GPOChanges (LocalAdmins/RDP/PSRemote/DCOM) a los
+        `targets` (SIDs de computadoras; lista o callable perezoso) con la relation
+        correspondiente. Acepta la clave real de SharpHound y el alias legacy."""
+        if not gpc:
+            return
+        for key, legacy, rel in self._GPO_CATS:
+            refs = gpc.get(key) or (gpc.get(legacy) if legacy else None)
+            for ref in refs or []:
+                psid, pname = self._resolve(ref)
+                if not psid:
+                    continue
+                self.add_node(psid, "user", pname)
+                tlist = targets() if callable(targets) else targets
+                for nid in tlist:
+                    if self.nodes.get(nid, {}).get("kind") == "computer":
+                        self.add_edge(psid, nid, rel, {"via": via})
+
     def _parse_computer(self, item, kind):
         sid, name = self._base(item, "computer")
         if not sid:
@@ -281,7 +336,7 @@ class BHGraph:
         # sesiones (SH v3: dict {Collected, FailureReason, Results})
         for sess_key, rel in (("Sessions", "HasSession"), ("PrivilegedSessions", "HasPrivSession")):
             for s in self._results_list(item.get(sess_key)):
-                usid = s.get("UserID") or s.get("UserSID") or (s.get("User") and None)
+                usid = s.get("UserID") or s.get("UserSID")
                 if not usid and s.get("User"):
                     usid = self._fuzzy_add_user(s["User"])
                 if usid:
@@ -326,7 +381,7 @@ class BHGraph:
         if not sid:
             return
         for t in item.get("Trusts") or []:
-            tsid = t.get("TargetDomainSid") or t.get("TargetDomainSid")
+            tsid = t.get("TargetDomainSid") or t.get("TargetDomainSID")
             tname = t.get("TargetDomainName")
             if not tsid and tname:
                 tsid = "TRUST::" + str(tname).upper()
@@ -345,19 +400,20 @@ class BHGraph:
                     (c.get("ObjectType") or "") if isinstance(c, dict) else "", "object")
                 self.add_node(csid, ck, cname)
                 self.add_edge(sid, csid, "Contains")
-        # GPOChanges fallback (cuando no hay LocalGroups por equipo)
+        # GPOChanges a nivel de dominio. SharpHound v3 trae AffectedComputers:
+        # úsala (verdad de campo). Si no está, restringir al MISMO dominio —
+        # nunca a computers de otros dominios de la colección, o se fabrican
+        # AdminTo cross-domain (falsos positivos en attack paths multi-dominio).
         gpc = item.get("GPOChanges") or {}
-        for key, rel in (("LocalAdmins", "AdminTo"), ("RDPUsers", "CanRDP"),
-                         ("PSRemoteUsers", "CanPSRemote"), ("DcomUsers", "CanDCOM")):
-            for ref in gpc.get(key) or []:
-                psid, pname = self._resolve(ref)
-                # targets: computadoras afectadas no están aquí; se resuelve a nivel
-                # de Contains→computers: enlazamos a todos los computers conocidos
-                if psid:
-                    self.add_node(psid, "user", pname)
-                    for nid, n in self.nodes.items():
-                        if n["kind"] == "computer":
-                            self.add_edge(psid, nid, rel, {"via": "GPOChanges"})
+        affected = self._gpo_affected(gpc)
+        if affected is not None:
+            self._apply_gpochanges(gpc, affected, "GPOChanges")
+        elif gpc:
+            dom = self._dom_prefix(sid)
+            self._apply_gpochanges(
+                gpc, lambda: [nid for nid, n in self.nodes.items()
+                              if n["kind"] == "computer" and self._dom_prefix(nid) == dom],
+                "GPOChanges(domain)")
 
     def _parse_certtemplate(self, item, kind):
         self._base(item, "certtemplate")
@@ -411,18 +467,13 @@ class BHGraph:
         ou_sid = item.get("ObjectIdentifier")
         if not gpc or not ou_sid:
             return
-        # quitar edges GPOChanges a TODOS los equipos que pueda haber creado domain-level
-        for key, rel in (("LocalAdmins", "AdminTo"), ("RDPUsers", "CanRDP"),
-                         ("PSRemoteUsers", "CanPSRemote"), ("DcomUsers", "CanDCOM")):
-            for ref in gpc.get(key) or []:
-                psid, pname = self._resolve(ref)
-                if not psid:
-                    continue
-                self.add_node(psid, "user", pname)
-                # aplicar solo a computers dentro de esta OU
-                for nid in self._descendants(ou_sid):
-                    if self.nodes[nid]["kind"] == "computer":
-                        self.add_edge(psid, nid, rel, {"via": "GPOChanges(OU)"})
+        # AffectedComputers (v3) es la verdad de campo; si no está, caer a los
+        # computers descendientes de esta OU (nunca a todo el grafo).
+        affected = self._gpo_affected(gpc)
+        targets = affected if affected is not None else \
+            (lambda: [nid for nid in self._descendants(ou_sid)
+                      if self.nodes.get(nid, {}).get("kind") == "computer"])
+        self._apply_gpochanges(gpc, targets, "GPOChanges(OU)")
 
     def _descendants(self, sid: str, depth: int = 3) -> list[str]:
         out, frontier, _d = [], [sid], 0
@@ -534,7 +585,6 @@ class Anonymizer:
         """Reemplaza nombres reales por alias dentro de strings de props (case-insensitive).
         Un solo regex alternante precompilado (longest-first) — O(1) pasadas por string,
         no O(n) re.sub por entrada del mapa."""
-        import re
         if not isinstance(value, str):
             return value
         if self._scrub_re is not None:
@@ -653,14 +703,16 @@ def build_graph(bh: BHGraph, anon: Anonymizer | None) -> dict:
 REVERSIBLE = {"HasSession", "HasPrivSession"}
 
 def attack_paths(graph: dict, max_hops: int = 6, top: int = 12) -> list[dict]:
-    adj: dict[str, list[tuple[str, str, bool]]] = defaultdict(list)
+    # Grafo transpuesto (predecesores). Un solo BFS inverso por target — O(T·(V+E))
+    # en vez de un BFS forward por nodo — O(V·(V+E)). Misma salida: shortest paths
+    # dirigidos, con edges reversibles (HasSession/HasPrivSession) expandidos igual.
+    radj: dict[str, list[tuple[str, str, bool]]] = defaultdict(list)
     for lk in graph["links"]:
-        adj[lk["source"]].append((lk["target"], lk["relation"], False))
+        radj[lk["target"]].append((lk["source"], lk["relation"], False))
         if lk["relation"] in REVERSIBLE:
-            adj[lk["target"]].append((lk["source"], lk["relation"], True))
+            radj[lk["source"]].append((lk["target"], lk["relation"], True))
 
     node_types = {n["id"]: n.get("type") for n in graph["nodes"]}
-    node_ids = set(node_types)
     # targets de alto valor
     targets = {}
     for n in graph["nodes"]:
@@ -678,10 +730,30 @@ def attack_paths(graph: dict, max_hops: int = 6, top: int = 12) -> list[dict]:
                 and node_types.get(lk["target"]) == "domain":
             targets[lk["source"]] = "DCSync rights on domain"
 
-    # BFS completo desde cada start; primer target alcanzado (menor dist)
+    # BFS inverso desde cada target: dist_by_t[t][n] = coste del shortest path n→t;
+    # prev_by_t[t][n] = (siguiente nodo hacia t, rel, rev) → paso forward n -[rel]-> nxt
+    dist_by_t: dict[str, dict[str, int]] = {}
+    prev_by_t: dict[str, dict[str, tuple[str, str, bool]]] = {}
+    for t in targets:
+        dist = {t: 0}
+        prev: dict[str, tuple[str, str, bool]] = {}
+        q = deque([t])
+        while q:
+            cur = q.popleft()
+            if dist[cur] >= max_hops:
+                continue
+            for pnode, rel, rev in radj.get(cur, ()):  # pnode -[rel]-> cur (forward)
+                if pnode in dist:
+                    continue
+                dist[pnode] = dist[cur] + 1
+                prev[pnode] = (cur, rel, rev)
+                q.append(pnode)
+        dist_by_t[t] = dist
+        prev_by_t[t] = prev
+
     wk_names = set(WELLKNOWN_RIDS.values()) | set(WELLKNOWN_SIDS.values())
     results = []
-    for start in node_ids:
+    for start in node_types:
         if node_types.get(start) not in ("user", "group"):
             continue
         if start in targets and "member of" in targets[start]:
@@ -689,36 +761,20 @@ def attack_paths(graph: dict, max_hops: int = 6, top: int = 12) -> list[dict]:
         # starts estructurales (DA/EA/DC/BUILTIN/KRBTGT/ADMINISTRATOR/...): triviales
         if start.upper() in wk_names or start.upper().split("@")[0] in wk_names:
             continue
-        prev: dict[str, tuple[str, str, bool]] = {}
-        dist = {start: 0}
-        q = deque([start])
-        while q:
-            cur = q.popleft()
-            if dist[cur] >= max_hops:
-                continue
-            for nxt, rel, rev in adj[cur]:
-                if nxt in dist:
-                    continue
-                dist[nxt] = dist[cur] + 1
-                prev[nxt] = (cur, rel, rev)
-                q.append(nxt)
-        # targets alcanzables ordenados por distancia
-        hit = sorted(((dist[t], t) for t in targets if t in dist and t != start))
+        hit = sorted((dist_by_t[t][start], t) for t in targets
+                     if start in dist_by_t[t] and t != start)
         if not hit:
             continue
         best_d = hit[0][0]
         for d, t in hit[:2]:  # hasta 2 targets al mismo coste mínimo
             if d > best_d:
                 break
-            path, hops, cur = [], [], t
-            while cur != start:
-                p, rel, rev = prev[cur]
-                hops.append(f"{p} -[{rel}{'↩' if rev else ''}]-> {cur}" if rev
-                            else f"{p} -[{rel}]-> {cur}")
-                path.append(cur)
-                cur = p
-            path.append(start)
-            path.reverse()
+            hops, cur = [], start
+            while cur != t:
+                nxt, rel, rev = prev_by_t[t][cur]
+                hops.append(f"{cur} -[{rel}{'↩' if rev else ''}]-> {nxt}" if rev
+                            else f"{cur} -[{rel}]-> {nxt}")
+                cur = nxt
             results.append({"from": start, "target": t,
                             "why": targets[t], "hops": d,
                             "path": " | ".join(hops)})
@@ -803,21 +859,55 @@ def adcs_quickwins(graph: dict) -> list[dict]:
     for n in graph.get("nodes") or []:
         if n.get("type") != "certtemplate":
             continue
-        pols = str(n.get("applicationpolicies") or "").upper()
+        def _blob(*keys):
+            parts = []
+            for k in keys:
+                v = n.get(k)
+                parts += v if isinstance(v, list) else [str(v or "")]
+            return " ".join(parts).upper()
+        pols = _blob("applicationpolicies")
+        eku_blob = _blob("applicationpolicies", "certificateapplicationpolicy", "ekus")
         esc1 = (bool(n.get("enrolleesuppliessubject")) and n.get("authenticationenabled")
                 and not n.get("requiresmanagerapproval") and not n.get("authorizedsignatures"))
         esc2 = ("ANY PURPOSE" in pols and n.get("authenticationenabled")
                 and not n.get("requiresmanagerapproval"))
-        if not (esc1 or esc2):
+        # ESC3: Certificate Request Agent (enrollment agent) sin aprobación
+        esc3 = (("CERTIFICATE REQUEST AGENT" in eku_blob
+                 or "1.3.6.1.4.1.311.20.2.1" in eku_blob)
+                and not n.get("requiresmanagerapproval"))
+        if not (esc1 or esc2 or esc3):
             continue
         who = sorted(w for w in enroll.get(n["id"], [])
                      if w.upper().split("@")[0] not in wk_names)
         wk_who = sorted(w for w in enroll.get(n["id"], [])
                         if w.upper().split("@")[0] in wk_names)
-        tag = "+".join(t for t, ok in (("ESC1", esc1), ("ESC2", esc2)) if ok)
+        tag = "+".join(t for t, ok in (("ESC1", esc1), ("ESC2", esc2), ("ESC3", esc3)) if ok)
         out.append({"template": n["id"], "esc": tag, "enroll": who, "wk_enroll": wk_who})
     out.sort(key=lambda r: (-len(r["enroll"]), r["template"]))
     return out
+
+
+# CA con control de escritura/gestión = ESC7 (ManageCA/ManageCertificates) o
+# toma directa del objeto CA (GenericAll/WriteDacl/WriteOwner/Owns).
+ESC7_RELS = {"Acl_Manageca", "Acl_Managecertificates", "GenericAll",
+             "GenericWrite", "WriteDacl", "WriteOwner", "Owns", "WritePKIEnrollmentFlag",
+             "WritePKINameFlag"}
+
+
+def adcs_ca_findings(graph: dict) -> list[dict]:
+    ca_ids = {n["id"] for n in graph.get("nodes") or []
+              if n.get("type") in ("enterpriseca", "rootca")}
+    wk_names = set(WELLKNOWN_RIDS.values()) | set(WELLKNOWN_SIDS.values())
+    by_ca: dict[str, list] = defaultdict(list)
+    for lk in graph.get("links") or []:
+        if lk.get("target") in ca_ids and lk.get("relation") in ESC7_RELS:
+            src = lk["source"]
+            tag = "ESC7" if lk["relation"].lower() in (
+                "acl_manageca", "acl_managecertificates") else "CA-takeover"
+            by_ca[lk["target"]].append({
+                "who": src, "rel": lk["relation"], "esc": tag,
+                "wellknown": src.upper().split("@")[0] in wk_names})
+    return [{"ca": ca, "controllers": ctrl} for ca, ctrl in sorted(by_ca.items())]
 
 
 def re_split(name: str) -> list[str]:

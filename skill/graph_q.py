@@ -25,7 +25,7 @@ CONTROL_RELS = {
     "WriteProperty", "Owns", "AllExtendedRights", "AddMember", "AddSelf",
     "ForceChangePassword", "DCSync", "GetChanges", "GetChangesAll",
     "AllowedToAct", "ReadGMSAPassword", "HasRole", "Owner", "Contributor",
-    "UserAccessAdmin", "VMAdminLogin", "Owns", "Enroll", "AutoEnroll",
+    "UserAccessAdmin", "VMAdminLogin", "Enroll", "AutoEnroll",
     "WritePKINameFlag", "WritePKIEnrollmentFlag", "Acl_Addkeycredentiallink",
     "Acl_Manageca", "Acl_Managecertificates", "Acl_Writeaccountrestrictions",
     "Acl_Addallowedtoact", "Acl_Readlapspassword", "KVAccessPolicy",

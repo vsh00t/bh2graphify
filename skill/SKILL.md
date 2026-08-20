@@ -27,9 +27,11 @@ producir hallazgos priorizados. El parsing ya está hecho — tu valor es la
   Aliases: `USER_NNNN`, `GROUP_NNNN`, `COMP_NNNN.DOM_NN`, `SP_NNNN`, `KV_NNNN`.
   Well-known preservados: `ADMINISTRATOR`, `DOMAIN_ADMINS@DOM_01`,
   `AUTHENTICATED_USERS`, `Global Administrator` (roles builtin legibles).
-- `RESUMEN.md` — hallazgos AUTOMÁTICOS ya generados (top attack paths + ESC
-  quickwins). **No los repitas: profundízalos** (validar precondiciones,
-  buscar variantes, encadenarlos).
+- `RESUMEN.md` — hallazgos AUTOMÁTICOS ya generados: top attack paths (reverse-BFS),
+  ADCS ESC1/2/3 + ESC7 (control sobre CA), y **correlación híbrida AD↔Entra**
+  (identidades sincronizadas por SID on-prem/UPN, dominios compartidos).
+  **No los repitas: profundízalos** (validar precondiciones, buscar variantes,
+  encadenarlos).
 - `map.json` (opcional, CONFIDENCIAL) — reversión alias→real. **Solo se usa al
   final, para el reporte del operador.** El análisis razona sobre aliases.
 
@@ -99,7 +101,7 @@ for lk in g.by_relation("HasPrivSession"):     # sesiones privilegiadas primero
 Cruzar: si un start de attack path tiene `HasPrivSession` en un host que OTRO
 start controla con AdminTo → cadena compuesta que el BFS por-target no mostró.
 
-### 5. ADCS más allá de quickwins (ESC4/ESC7/ESC8)
+### 5. ADCS más allá del automático (ESC4/ESC8; validar el ESC7 ya reportado)
 ```python
 # ESC4: control de ESCRITURA sobre el template (no solo Enroll)
 for t in [n for n in g.search("", type_="certtemplate")]:
@@ -171,10 +173,13 @@ c.most_common(10)
 
 ## Híbrido (si hay graph.json + graph_az.json)
 
-Cruzar nombres de dominio del tenant AZ (`tenant_domains`) con domains del grafo
-AD. Si coinciden: holders de `Directory Synchronization Accounts`, VMs con
-nombre de DC en AZ, `Hybrid Identity Administrator` → cadena cloud→on-prem.
-Documentar como attack path compuesto aunque no haya edges directos.
+`analyze_zip` ya emite la correlación base en `RESUMEN.md` (dominios compartidos
++ identidades sincronizadas por SID on-prem/UPN). **Profundízala:** para cada
+identidad sincronizada, cruzar su privilegio on-prem (¿es DA? ¿tiene sesión
+privilegiada?) con su privilegio cloud (¿holder de rol de alto valor?). Sumar
+holders de `Directory Synchronization Accounts` / `Hybrid Identity Administrator`
+(Entra Connect → on-prem) y VMs con nombre de DC en AZ. Documentar como attack
+path compuesto cloud↔on-prem aunque no haya edges directos (marcarlo INFERRED).
 
 ## Formato de salida (cada finding)
 

@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bh2graphify"
+version = "1.1.0"
+description = "SharpHound + AzureHound → grafos LLM-native (graph.json) con anonimización determinista y attack paths. Solo stdlib."
+readme = "README.md"
+requires-python = ">=3.8"
+keywords = ["bloodhound", "sharphound", "azurehound", "active-directory", "entra-id", "pentest", "attack-paths", "adcs"]
+dependencies = []   # 100% stdlib — sin dependencias por diseño
+# license: pendiente de decisión del propietario (ver README §Licencia)
+
+[project.urls]
+Homepage = "https://github.com/"
+
+# Uso primario: portable, "copiar la carpeta y correr" (python3 <script>.py).
+# Los scripts viven en el nivel raíz (flat layout).
+[tool.setuptools]
+py-modules = ["bh2graphify", "az2graphify", "analyze_zip"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py38"
+
+[tool.ruff.lint]
+# El lint del CI caza BUGS (pyflakes F, comparaciones E7, sintaxis E9, warnings W),
+# no reformatea el estilo compacto deliberado del proyecto: se ignoran los punto y
+# coma / compound statements (E701/E702), lambdas asignadas (E731) e imports tras
+# código (E402, patrón sys.path.insert de los helpers). El ancho no es bloqueante.
+select = ["F", "E7", "E9", "W"]
+ignore = ["E402", "E701", "E702", "E731"]

@@ -1,0 +1,32 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Compilación (sintaxis, todas las fuentes)
+        run: python -m py_compile bh2graphify.py az2graphify.py analyze_zip.py skill/graph_q.py tests/synthetic_es/generar.py tests/synthetic_es/validar.py
+      - name: Suite sintética ES (21 checks base + regresiones)
+        run: python tests/synthetic_es/validar.py
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pipx run ruff check .
