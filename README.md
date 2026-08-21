@@ -89,8 +89,12 @@ el brief los computa a partir de los edges ya presentes en el grafo:
 - **CoerceToTGT** (unconstrained no-DC), **GoldenCert** (AdminTo al host de la CA),
   **ESC9** (`nosecurityextension` + auth), **SpoofSIDHistory** (trust con SID
   filtering off).
-- Pendiente por datos de colección: **ESC6/ESC8/ESC10/ESC13** (requieren flags de
-  CA / web-enrollment / OID group links que SharpHound no siempre expone en el JSON).
+- **ESC6** (`isuserspecifiessanenabled` = EDITF), **ESC8** (`adcswebenrollmenthttp`
+  / `hasvulnerableendpoint`), **ESC13** (`issuancepolicies` con `OIDGroupLink` →
+  enrolar el template da membresía al grupo). Nombres de campo del graphschema
+  oficial de BloodHound.
+- Pendiente: **ESC10** (config de registro del DC — no está en la colección de
+  SharpHound).
 
 ### Híbrido (AD ↔ Entra)
 Cuando el zip trae ambos planos, `analyze_zip` correlaciona identidades

@@ -53,7 +53,7 @@ resto de este skill. Exit `1` = leak duro (revisar antes de sacar el grafo),
   choke points, ADCS ESC1/2/3 + ESC7, **vectores de control** (GPO abuse con objetos
   afectados + flag Enforced, Shadow Credentials/AddKeyCredentialLink, ESC4, LAPS
   readers, RBCD, Kerberoast dirigido/WriteSPN, CoerceToTGT, GoldenCert, ESC9,
-  SpoofSIDHistory) y **correlación híbrida AD↔Entra**.
+  SpoofSIDHistory, ESC6, ESC8, ESC13) y **correlación híbrida AD↔Entra**.
   **No los repitas: profundízalos** (validar precondiciones, variantes, encadenarlos).
 - `map.json` (opcional, CONFIDENCIAL) — reversión alias→real. **Solo se usa al
   final, para el reporte del operador.** El análisis razona sobre aliases.

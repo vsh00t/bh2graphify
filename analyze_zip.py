@@ -211,6 +211,20 @@ def build_ad_brief(real: dict, agr: dict, max_hops: int) -> list[str]:
         if cv["spoof_sid_history"]:
             L.append(f"- **SpoofSIDHistory** (trust con SID filtering OFF, {len(cv['spoof_sid_history'])}): "
                      + _pairs(cv["spoof_sid_history"]))
+        if cv["esc6"]:
+            L.append(f"- **ADCS ESC6** (CA con EDITF_ATTRIBUTESUBJECTALTNAME2, {len(cv['esc6'])}): "
+                     + ", ".join(f"`{x}`" for x in cv["esc6"][:6])
+                     + " — todo template de auth permite SAN arbitrario ⇒ suplantar cualquier principal")
+        if cv["esc8"]:
+            L.append(f"- **ADCS ESC8** (CA con web enrollment HTTP, {len(cv['esc8'])}): "
+                     + ", ".join(f"`{x}`" for x in cv["esc8"][:6])
+                     + " — coerción + relay NTLM → cert del DC → DCSync")
+        if cv["esc13"]:
+            L.append(f"- **ADCS ESC13** (template con OID group link, {len(cv['esc13'])}):")
+            for e in cv["esc13"][:6]:
+                gr = ", ".join(f"`{g}`" for g in e["groups"][:3])
+                who = ", ".join(f"`{s}`" for s in e["enrollers"][:3])
+                L.append(f"  - `{e['template']}` → grupo(s): {gr} · enrola: {who}")
         L.append("")
 
     if uncon or kerb or asrep:

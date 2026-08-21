@@ -164,11 +164,24 @@ def ds2():
                        "certificatenameflag": "ENROLLEE_SUPPLIES_SUBJECT",
                        "applicationpolicies": [], "ekus": ["Client Authentication"]},
         "ContainedBy": {"ObjectIdentifier": "44444444-aaaa-bbbb-cccc-000000000004", "ObjectType": "Container"},
-        "Aces": [ace("S-1-5-11", "Group", "Enroll")]}]
+        "Aces": [ace("S-1-5-11", "Group", "Enroll")]},
+        # ESC13: template con issuance policy (OID) que linkea a DOMAIN ADMINS
+        {"ObjectIdentifier": "aaaa1111-bbbb-cccc-dddd-000000000013",
+         "Properties": {"name": "PLANTILLA CON POLÍTICA OID@"+DOM, "domain": DOM,
+                        "authenticationenabled": True, "requiresmanagerapproval": False,
+                        "certificatepolicy": ["1.3.6.1.4.1.311.21.8.9999"]},
+         "Aces": [ace(s(1201), "User", "Enroll")]}]   # auditor.interno puede enrolar
+    issuancepolicies = [{"ObjectIdentifier": "bbbb2222-cccc-dddd-eeee-000000000013",
+        "Properties": {"name": "POLÍTICA DE EMISIÓN OID@"+DOM, "domain": DOM,
+                       "oid": "1.3.6.1.4.1.311.21.8.9999", "displayname": "Política OID Privilegiada"},
+        "GroupLink": {"ObjectIdentifier": s(512), "ObjectType": "Group"}, "Aces": []}]  # → DOMAIN ADMINS
     cas = [{"ObjectIdentifier": "55555555-aaaa-bbbb-cccc-000000000005",
         "Properties": {"name": "ENTIDAD CERTIFICADORA RAÍZ@"+DOM, "domain": DOM,
                        "caname": "Entidad Certificadora Raíz",
-                       "dnshostname": "srv-ca.financiera.local", "whencreated": 1678886000},
+                       "dnshostname": "srv-ca.financiera.local", "whencreated": 1678886000,
+                       # ESC6 (EDITF_ATTRIBUTESUBJECTALTNAME2) + ESC8 (web enrollment HTTP)
+                       "isuserspecifiessanenabled": True, "adcswebenrollmenthttp": True,
+                       "hasvulnerableendpoint": True, "roleseparationenabled": False},
         "HostingComputer": {"ObjectIdentifier": s(1206), "ObjectType": "Computer"},
         "EnabledCertTemplates": [{"ObjectIdentifier": "33333333-aaaa-bbbb-cccc-000000000003",
                                   "ObjectType": "CertTemplate"}],
@@ -187,6 +200,7 @@ def ds2():
     write(base/f"{D}_gpos.json", "gpos", gpos)
     write(base/f"{D}_certtemplates.json", "certtemplates", templates)
     write(base/f"{D}_enterprisecas.json", "enterprisecas", cas)
+    write(base/f"{D}_issuancepolicies.json", "issuancepolicies", issuancepolicies)
 
 
 # ═════════════════════════════════════════════════════════════════════════════

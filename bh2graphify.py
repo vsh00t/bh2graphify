@@ -72,7 +72,8 @@ NODE_KINDS = {"users": "user", "groups": "group", "computers": "computer",
               "domains": "domain", "gpos": "gpo", "ous": "ou",
               "containers": "container",
               "certtemplates": "certtemplate", "enterprisecas": "enterpriseca",
-              "rootcas": "rootca", "aiacas": "aiaca", "ntauthstores": "ntauthstore"}
+              "rootcas": "rootca", "aiacas": "aiaca", "ntauthstores": "ntauthstore",
+              "issuancepolicies": "issuancepolicy"}
 
 # RightName → relation canónica
 ACL_MAP = {
@@ -114,6 +115,10 @@ SAFE_PROPS = {
     "authorizedsignatures", "certificatenameflag", "applicationpolicies",
     "certificateapplicationpolicy", "enrollmentflag", "validityperiod",
     "renewalperiod", "schemaversion", "nosecurityextension", "hasspn", "ekus",
+    "effectiveekus", "certificatepolicy", "oid",
+    # ADCS CA-level (ESC6/ESC8) — nombres del graphschema oficial de BloodHound
+    "isuserspecifiessanenabled", "adcswebenrollmenthttp", "adcswebenrollmenthttps",
+    "hasvulnerableendpoint", "roleseparationenabled", "hasenrollmentagentrestrictions",
 }
 EPOCH_PROPS = {"pwdlastset", "lastlogon", "lastlogontimestamp"}
 
@@ -420,6 +425,19 @@ class BHGraph:
 
     def _parse_certtemplate(self, item, kind):
         self._base(item, "certtemplate")
+
+    def _parse_issuancepolicy(self, item, kind):
+        # ESC13: policy con OIDGroupLink → enrolar un template con esta policy da
+        # membresía efectiva al grupo vinculado (msDS-OIDToGroupLink).
+        sid, _ = self._base(item, "issuancepolicy")
+        if not sid:
+            return
+        gl = item.get("GroupLink") or item.get("OIDGroupLink")
+        if isinstance(gl, dict):
+            gsid, gname = self._resolve(gl)
+            if gsid:
+                self.add_node(gsid, "group", gname)
+                self.add_edge(sid, gsid, "OIDGroupLink")
 
     def _parse_enterpriseca(self, item, kind):
         sid, _ = self._base(item, "enterpriseca")
@@ -1075,6 +1093,35 @@ def control_vectors(graph: dict) -> dict:
     # SpoofSIDHistory: trust con SID filtering deshabilitado → inyectar SID history cross-domain
     spoof_sid = sorted((lk["source"], lk["target"]) for lk in by_rel.get("Trusts", [])
                        if lk.get("sidfiltering_off"))
+    # ESC6: Enterprise CA con EDITF_ATTRIBUTESUBJECTALTNAME2 → cualquier template de
+    # auth permite SAN arbitrario (suplantar cualquier principal).
+    esc6 = sorted(nid for nid, n in nodes.items()
+                  if n.get("type") == "enterpriseca" and n.get("isuserspecifiessanenabled"))
+    # ESC8: Enterprise CA con web enrollment HTTP → coerción + relay NTLM → cert de DC.
+    esc8 = sorted(nid for nid, n in nodes.items()
+                  if n.get("type") == "enterpriseca"
+                  and (n.get("adcswebenrollmenthttp") or n.get("hasvulnerableendpoint")))
+    # ESC13: template con issuance policy que tiene OIDGroupLink → grupo; enrolarlo
+    # (Enroll de un no-admin) otorga membresía efectiva a ese grupo.
+    oid_to_group = {}
+    for lk in by_rel.get("OIDGroupLink", []):
+        oid = nodes.get(lk["source"], {}).get("oid")
+        if oid:
+            oid_to_group[oid] = lk["target"]
+    enroll_to: dict[str, list] = defaultdict(list)
+    for r in ("Enroll", "AutoEnroll"):
+        for lk in by_rel.get(r, []):
+            enroll_to[lk["target"]].append(lk["source"])
+    esc13 = []
+    for tid, n in nodes.items():
+        if n.get("type") != "certtemplate":
+            continue
+        pol = n.get("certificatepolicy") or []
+        pol = [pol] if isinstance(pol, str) else pol
+        groups = sorted({oid_to_group[o] for o in pol if o in oid_to_group})
+        enrollers = sorted({s for s in enroll_to.get(tid, []) if not_wk(s)})
+        if groups and enrollers:
+            esc13.append({"template": tid, "groups": groups, "enrollers": enrollers})
 
     return {
         "gpo": gpo,
@@ -1087,6 +1134,9 @@ def control_vectors(graph: dict) -> dict:
         "golden_cert": golden_cert,
         "esc9": esc9,
         "spoof_sid_history": spoof_sid,
+        "esc6": esc6,
+        "esc8": esc8,
+        "esc13": esc13,
     }
 
 

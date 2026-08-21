@@ -139,6 +139,15 @@ def caso_ds2():
         return (leaks == [], f"leaks={leaks[:5]}")
     check("ds2", "leak-check anon limpio (ñ y apóstrofes)", e4)
 
+    def e5():
+        cv = bh.control_vectors(plain)
+        ok = (cv["esc6"] and cv["esc8"] and cv["esc13"]
+              and "DOMAIN ADMINS" in cv["esc13"][0]["groups"][0]
+              and "AUDITOR.INTERNO" in cv["esc13"][0]["enrollers"][0]
+              and cv["spoof_sid_history"])
+        return (bool(ok), f"esc6={len(cv['esc6'])} esc8={len(cv['esc8'])} esc13={cv['esc13']}")
+    check("ds2", "ADCS ESC6/ESC8/ESC13 + SpoofSIDHistory (parseo issuancepolicy/OIDGroupLink)", e5)
+
 
 def caso_ds3():
     print("\n== DS3 sector-público (¿?, Nº, em-dash, colisiones target/user/Administrator) ==")
