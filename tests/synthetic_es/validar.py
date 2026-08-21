@@ -375,6 +375,26 @@ def caso_mejoras():
         return (ok, f"brief={brief[:120]!r}")
     check("mej", "brief ejecutivo: choke points + escaladas dedupeadas", e_brief)
 
+    def e_graphq_cli():
+        import importlib.util
+        import tempfile
+        spec = importlib.util.spec_from_file_location("graph_q", HERE / "skill" / "graph_q.py")
+        gq = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(gq)
+        gr = {"directed": True, "multigraph": True, "graph": {},
+              "nodes": [{"id": "U", "label": "U", "type": "user"},
+                        {"id": "CN", "label": "CN", "type": "container"},
+                        {"id": "DA", "label": "DA", "type": "group"}],
+              "links": [{"source": "U", "target": "CN", "relation": "MemberOf"},
+                        {"source": "CN", "target": "DA", "relation": "Contains"}]}
+        f = Path(tempfile.mkdtemp()) / "graph.json"
+        f.write_text(json.dumps(gr))
+        g = gq.GraphQ(str(f))
+        p = g.path("U", "DA")   # no debe existir (solo via Contains)
+        return (p is None and hasattr(gq, "main"),
+                f"path={p} tiene_main={hasattr(gq, 'main')}")
+    check("mej", "graph_q: CLI presente + path no atraviesa Contains", e_graphq_cli)
+
     def e_scrub_perf():
         # anti-regresión: el scrub escala O(len), no O(nº patrones). Con el
         # mega-regex viejo esto tardaba >30 s; margen amplio para no ser flaky.

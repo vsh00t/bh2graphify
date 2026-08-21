@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import stat
 import sys
 import zipfile
@@ -306,6 +307,12 @@ def main():
 
     gdir = out / "graphify-out"
     gdir.mkdir(exist_ok=True)
+    # copiar el CLI de consultas junto al grafo → el agente lo corre por ruta
+    # predecible (python3 <gdir>/graph_q.py stats), sin adivinar dónde está.
+    try:
+        shutil.copy(HERE / "skill" / "graph_q.py", gdir / "graph_q.py")
+    except OSError:
+        pass
     sections, hard_all, soft_all = [], [], []
     bh_graph = azg = None
 

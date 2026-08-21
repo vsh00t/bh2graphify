@@ -59,8 +59,20 @@ resto de este skill. Exit `1` = leak duro (revisar antes de sacar el grafo),
 
 ## Setup
 
+**Vía rápida — CLI** (`analyze_zip` copia `graph_q.py` junto al grafo; tiene `--help`):
+
+```bash
+Q="<out>/graphify-out/graph_q.py"
+python3 "$Q" stats                              # inventario: tipos, relations top
+python3 "$Q" paths-to "DOMAIN_ADMINS@DOM_01"    # quién llega y cómo
+python3 "$Q" controllers "GROUP_NNNN"           # quién controla X
+python3 "$Q" find-props hasspn=true             # kerberoastables
+```
+
+**O como librería** (para razonamiento más elaborado):
+
 ```python
-import sys; sys.path.insert(0, "<dir de este skill>/scripts")  # o skill/ según plataforma
+import sys; sys.path.insert(0, "<dir de este skill>")  # donde está graph_q.py
 from graph_q import GraphQ
 g = GraphQ("<path>/graph.json", map_path="<path>/map.json")
 g.stats()                       # inventario: tipos, relations top

@@ -122,7 +122,7 @@ class GraphQ:
             if dist[cur] >= max_hops:
                 continue
             for other, r, rev, p in self.adj[cur]:
-                if other in dist:
+                if r in NON_ATTACK or other in dist:  # Contains/GpLink/Trusts = placement
                     continue
                 dist[other] = dist[cur] + 1
                 prev[other] = (cur, r, rev)
@@ -170,3 +170,108 @@ class GraphQ:
             real = self._by_alias.get(tok, {}).get("real")
             return f"{real} [{tok}]" if real else tok
         return _re.sub(r"[A-Z]+_[A-Z0-9_.@\-]+", _sub, path_str)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# CLI — para consultas rápidas sin escribir Python. `analyze_zip` copia este
+# script junto al grafo, así el agente lo corre por ruta predecible:
+#   python3 <out>/graphify-out/graph_q.py stats
+#   python3 <out>/graphify-out/graph_q.py controllers "GROUP_0007"
+#   python3 <out>/graphify-out/graph_q.py paths-to "DOMAIN_ADMINS@DOM_01"
+# ──────────────────────────────────────────────────────────────────────────────
+def main():
+    import argparse
+    here = Path(__file__).parent
+    ap = argparse.ArgumentParser(
+        prog="graph_q",
+        description="Consultas sobre el graph.json de bh2graphify (sin neo4j).")
+    ap.add_argument("--graph", default=str(here / "graph.json"),
+                    help="ruta a graph.json (default: junto a este script)")
+    ap.add_argument("--map", default=str(here / "map.json"),
+                    help="ruta a map.json para de-anon (opcional)")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("stats", help="inventario: tipos y relations top")
+    sp = sub.add_parser("controllers", help="quién tiene control directo sobre un nodo")
+    sp.add_argument("node")
+    sp = sub.add_parser("paths-to", help="starts (user/group/sp) con path a un target")
+    sp.add_argument("target"); sp.add_argument("--max-hops", type=int, default=6)
+    sp.add_argument("--limit", type=int, default=15)
+    sp = sub.add_parser("path", help="shortest attack path src -> dst")
+    sp.add_argument("src"); sp.add_argument("dst"); sp.add_argument("--max-hops", type=int, default=6)
+    sp = sub.add_parser("by-relation", help="todos los links de una relation")
+    sp.add_argument("relation"); sp.add_argument("--limit", type=int, default=40)
+    sp = sub.add_parser("find-props", help="nodos por props (K=V, ej: hasspn=true)")
+    sp.add_argument("kv", nargs="+")
+    sp = sub.add_parser("search", help="nodos cuyo id contiene SUBSTR")
+    sp.add_argument("substr"); sp.add_argument("--type", default=None)
+    sp = sub.add_parser("neighbors", help="vecinos de un nodo")
+    sp.add_argument("node"); sp.add_argument("--rel", default=None)
+    sp.add_argument("--direction", default="out", choices=["out", "in", "both"])
+    sp = sub.add_parser("deanon", help="alias -> nombre real (requiere --map)")
+    sp.add_argument("alias")
+    args = ap.parse_args()
+
+    mp = args.map if Path(args.map).is_file() else None
+    g = GraphQ(args.graph, map_path=mp)
+
+    if args.cmd == "stats":
+        s = g.stats()
+        print(f"nodos={s['nodes']} links={s['links']} anonymized={s['anonymized']}")
+        print("por tipo: " + ", ".join(f"{k}={v}" for k, v in sorted(s["by_type"].items())))
+        print("relations top:")
+        for r, c in s["top_relations"].items():
+            print(f"  {r:26s} {c}")
+    elif args.cmd == "controllers":
+        rows = g.controllers(args.node)
+        if not rows:
+            print("(sin controladores directos)")
+        for src, rel, p in rows:
+            extra = "  (" + ", ".join(f"{k}={v}" for k, v in p.items()) + ")" if p else ""
+            print(f"  {src} -[{rel}]-> {args.node}{extra}")
+    elif args.cmd == "paths-to":
+        res = g.paths_to(args.target, max_hops=args.max_hops, limit=args.limit)
+        if not res:
+            print("(sin paths a ese target)")
+        for r in res:
+            print(f"[{r['hops']}h] {r['from']}")
+            print("   " + " | ".join(r["path"]))
+    elif args.cmd == "path":
+        p = g.path(args.src, args.dst, max_hops=args.max_hops)
+        print(" | ".join(p) if p else "(sin path)")
+    elif args.cmd == "by-relation":
+        links = g.by_relation(args.relation, limit=args.limit)
+        if not links:
+            print("(ningún link con esa relation)")
+        for lk in links:
+            print(f"  {lk['source']} -[{lk['relation']}]-> {lk['target']}")
+    elif args.cmd == "find-props":
+        props = {}
+        for kv in args.kv:
+            if "=" not in kv:
+                ap.error(f"prop inválida (usar K=V): {kv}")
+            k, v = kv.split("=", 1)
+            vv = {"true": True, "false": False}.get(v.lower(), v)
+            if isinstance(vv, str) and vv.lstrip("-").isdigit():
+                vv = int(vv)
+            props[k] = vv
+        rows = g.find_props(**props)
+        print(f"{len(rows)} nodo(s):")
+        for n in rows[:60]:
+            print(f"  {n['id']} ({n.get('type')})")
+    elif args.cmd == "search":
+        rows = g.search(args.substr, type_=args.type)
+        print(f"{len(rows)} nodo(s):")
+        for n in rows[:60]:
+            print(f"  {n['id']} ({n.get('type')})")
+    elif args.cmd == "neighbors":
+        rows = g.neighbors(args.node, rel=args.rel, direction=args.direction)
+        if not rows:
+            print("(sin vecinos)")
+        for other, rel, rev, _p in rows:
+            print(f"  {args.node} {'<-' if rev else '->'}[{rel}] {other}")
+    elif args.cmd == "deanon":
+        print(g.deanon(args.alias))
+
+
+if __name__ == "__main__":
+    main()

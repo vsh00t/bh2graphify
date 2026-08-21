@@ -9,7 +9,9 @@ Cuando el usuario pida analizar un dump de BloodHound / SharpHound / AzureHound
   `python3 ~/Desktop/bh2graphify/analyze_zip.py <zip> --out ~/pentest-data/current --clean`).
   En 2 s produce un brief con attack paths, choke points, ADCS y superficie.
 - Razoná sobre el **brief** (`~/pentest-data/current/graphify-out/RESUMEN.md`), no sobre
-  el dump. Para consultas puntuales usá `graph_q.py` sobre el `graph.json`, nunca los crudos.
+  el dump. Para consultas puntuales corré el CLI que queda junto al grafo:
+  `python3 ~/pentest-data/current/graphify-out/graph_q.py --help` (subcomandos: `stats`,
+  `controllers`, `paths-to`, `find-props`, `by-relation`…). Nunca abras los JSON crudos.
 
 El trabajo pesado y determinista lo hace `bh2graphify`. Tu trabajo es razonar sobre
 el resultado, no recalcularlo.

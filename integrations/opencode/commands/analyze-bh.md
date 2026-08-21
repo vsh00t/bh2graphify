@@ -22,7 +22,19 @@ Cómo leer el brief:
 - **ADCS** (ESC1/2/3/7) y **Superficie** (kerberoast / AS-REP / unconstrained) son
   vectores paralelos — crúzalos con los choke points.
 
-Para profundizar en un nodo puntual, consultá el GRAFO (no los JSON crudos):
-`python3 "$BH/skill/graph_q.py"` sobre `$HOME/pentest-data/current/graphify-out/graph.json`
-(`controllers`, `paths_to`, `by_relation`, `find_props`). Reglas: no inventes edges
-que no estén en el grafo; si viene anonimizado, de-anon solo al final con `map.json`.
+Para profundizar en un nodo, usá el CLI `graph_q.py` que quedó **junto al grafo**
+(mismo dir del brief; tiene `--help`). NO abras los JSON crudos, NO adivines rutas:
+
+```
+Q="$HOME/pentest-data/current/graphify-out/graph_q.py"
+python3 "$Q" --help
+python3 "$Q" stats
+python3 "$Q" controllers "GROUP_0007"                 # quién controla ese nodo
+python3 "$Q" paths-to "DOMAIN_ADMINS@DOM_01"          # quién llega y cómo
+python3 "$Q" find-props hasspn=true                   # kerberoastables
+python3 "$Q" by-relation Acl_Addkeycredentiallink     # Shadow Credentials
+```
+
+(`--graph`/`--map` ya apuntan por defecto a los archivos de ese dir.) Reglas: no
+inventes edges que no estén en el grafo; si viene anonimizado, de-anon solo al
+final con `deanon`/`map.json`.
