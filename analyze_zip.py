@@ -194,6 +194,23 @@ def build_ad_brief(real: dict, agr: dict, max_hops: int) -> list[str]:
         if cv["targeted_kerberoast"]:
             L.append(f"- **Kerberoast dirigido** (WriteSPN, {len(cv['targeted_kerberoast'])}): "
                      + _pairs(cv["targeted_kerberoast"]))
+        if cv["coerce_to_tgt"]:
+            L.append(f"- **CoerceToTGT** (unconstrained delegation no-DC, {len(cv['coerce_to_tgt'])}): "
+                     + ", ".join(f"`{x}`" for x in cv["coerce_to_tgt"][:8])
+                     + " — comprometerlo ⇒ TGT de cualquier objeto coaccionado (incl. DC → DCSync)")
+        if cv["golden_cert"]:
+            L.append(f"- **GoldenCert** (host de Enterprise CA ⇒ forjar certs, {len(cv['golden_cert'])}):")
+            for gc in cv["golden_cert"][:6]:
+                adm = ", ".join(f"`{a}`" for a in gc["admins"][:3]) if gc["admins"] \
+                    else "(solo admins Tier-0)"
+                L.append(f"  - CA `{gc['ca']}` en `{gc['host']}` · AdminTo no-admin: {adm}")
+        if cv["esc9"]:
+            L.append(f"- **ADCS ESC9** (template sin security extension + auth, {len(cv['esc9'])}): "
+                     + ", ".join(f"`{x}`" for x in cv["esc9"][:8])
+                     + " — requiere weak cert binding en el DC")
+        if cv["spoof_sid_history"]:
+            L.append(f"- **SpoofSIDHistory** (trust con SID filtering OFF, {len(cv['spoof_sid_history'])}): "
+                     + _pairs(cv["spoof_sid_history"]))
         L.append("")
 
     if uncon or kerb or asrep:

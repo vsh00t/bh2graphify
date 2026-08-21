@@ -391,6 +391,9 @@ class BHGraph:
                     "direction": t.get("TrustDirection"),
                     "transitive": t.get("IsTransitive"),
                     "sidfiltering": t.get("SidFilteringEnabled"),
+                    # señal invertida: build_graph descarta los props False, así que
+                    # guardamos "off" (True = SID filtering deshabilitado = SpoofSIDHistory)
+                    "sidfiltering_off": t.get("SidFilteringEnabled") is False,
                 })
         for c in item.get("ChildObjects") or []:
             csid, cname = self._resolve(c)
@@ -989,6 +992,7 @@ def control_vectors(graph: dict) -> dict:
     (AddKeyCredentialLink), ESC4 (escritura sobre un template), lectores de LAPS,
     RBCD y Kerberoast dirigido (WriteSPN). Cada uno = un edge/primitiva de BloodHound.
     Se filtran los principals well-known (control legítimo de Tier-0)."""
+    nodes = {n["id"]: n for n in graph["nodes"]}
     ntype = {n["id"]: n.get("type") for n in graph["nodes"]}
     wk = set(WELLKNOWN_RIDS.values()) | set(WELLKNOWN_SIDS.values())
     def not_wk(x):
@@ -1050,6 +1054,28 @@ def control_vectors(graph: dict) -> dict:
             for tid, tp in ntype.items() if tp == "certtemplate" and
             any(not_wk(s) for s, _ in ctrl_to.get(tid, []))]
 
+    # — Grupo B —
+    # CoerceToTGT: host con unconstrained delegation (no DC) → coaccionar cualquier
+    # objeto (incl. DC) → capturar su TGT → DCSync. Los DC son unconstrained por diseño.
+    coerce_to_tgt = sorted(nid for nid, n in nodes.items()
+                           if n.get("type") == "computer" and n.get("unconstraineddelegation")
+                           and not n.get("isdc"))
+    # GoldenCert: admin sobre el host de una Enterprise CA → clave privada → forjar certs.
+    ca_host = {lk["target"]: lk["source"] for lk in by_rel.get("HostsCA", [])}
+    admin_to: dict[str, list] = defaultdict(list)
+    for lk in by_rel.get("AdminTo", []):
+        admin_to[lk["target"]].append(lk["source"])
+    golden_cert = [{"ca": ca, "host": host,
+                    "admins": sorted(s for s in admin_to.get(host, []) if not_wk(s))}
+                   for ca, host in sorted(ca_host.items())]
+    # ESC9: template sin security extension + autenticación (requiere weak binding en el DC)
+    esc9 = sorted(nid for nid, n in nodes.items()
+                  if n.get("type") == "certtemplate" and n.get("nosecurityextension")
+                  and n.get("authenticationenabled"))
+    # SpoofSIDHistory: trust con SID filtering deshabilitado → inyectar SID history cross-domain
+    spoof_sid = sorted((lk["source"], lk["target"]) for lk in by_rel.get("Trusts", [])
+                       if lk.get("sidfiltering_off"))
+
     return {
         "gpo": gpo,
         "shadow": pairs("Acl_Addkeycredentiallink"),                       # Shadow Credentials
@@ -1057,6 +1083,10 @@ def control_vectors(graph: dict) -> dict:
         "laps": pairs("Acl_Readlapspassword", "Acl_Synclapspassword"),     # LAPS
         "rbcd": pairs("AllowedToAct", "Acl_Addallowedtoact", "Acl_Writeaccountrestrictions"),
         "targeted_kerberoast": pairs("Acl_Writespn"),                      # WriteSPN
+        "coerce_to_tgt": coerce_to_tgt,
+        "golden_cert": golden_cert,
+        "esc9": esc9,
+        "spoof_sid_history": spoof_sid,
     }
 
 

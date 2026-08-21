@@ -78,6 +78,20 @@ resueltos por GUID; desconocidos → `RBAC_<guid8>`), jerarquía `Contains`
   Administrator, Application Administrator, Hybrid Identity Administrator...),
   subscriptions, management groups y Key Vaults.
 
+### Vectores de control (edges BloodHound que el BFS no nombra por sí solo)
+Basado en el [catálogo de edges de SpecterOps](https://bloodhound.specterops.io/resources/edges/overview);
+el brief los computa a partir de los edges ya presentes en el grafo:
+- **GPO abuse** — GPO controlado por no-admin → expande `GpLink`/`Contains` y
+  cuenta los objetos afectados (+ flag `Enforced`).
+- **Shadow Credentials** (`AddKeyCredentialLink`), **ESC4** (escritura sobre
+  template), **LAPS** (`ReadLAPSPassword`), **RBCD**, **Kerberoast dirigido**
+  (`WriteSPN`).
+- **CoerceToTGT** (unconstrained no-DC), **GoldenCert** (AdminTo al host de la CA),
+  **ESC9** (`nosecurityextension` + auth), **SpoofSIDHistory** (trust con SID
+  filtering off).
+- Pendiente por datos de colección: **ESC6/ESC8/ESC10/ESC13** (requieren flags de
+  CA / web-enrollment / OID group links que SharpHound no siempre expone en el JSON).
+
 ### Híbrido (AD ↔ Entra)
 Cuando el zip trae ambos planos, `analyze_zip` correlaciona identidades
 sincronizadas por **SID on-prem** (`onPremisesSecurityIdentifier`, cruce fuerte)

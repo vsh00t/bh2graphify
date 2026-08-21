@@ -442,6 +442,26 @@ def caso_mejoras():
         return (bool(ok), f"cv={cv}")
     check("mej", "control_vectors: GPO abuse + Shadow/LAPS/ESC4/RBCD", e_control_vectors)
 
+    def e_grupo_b():
+        graph = {"nodes": [{"id": "WS1", "type": "computer", "unconstraineddelegation": True},
+                           {"id": "DC1", "type": "computer", "unconstraineddelegation": True, "isdc": True},
+                           {"id": "CAHOST", "type": "computer"}, {"id": "CA1", "type": "enterpriseca"},
+                           {"id": "HELPDESK", "type": "group"},
+                           {"id": "TPL9", "type": "certtemplate", "nosecurityextension": True,
+                            "authenticationenabled": True},
+                           {"id": "CORP.LOCAL", "type": "domain"}, {"id": "PARTNER.LOCAL", "type": "domain"}],
+                 "links": [{"source": "CAHOST", "target": "CA1", "relation": "HostsCA"},
+                           {"source": "HELPDESK", "target": "CAHOST", "relation": "AdminTo"},
+                           {"source": "CORP.LOCAL", "target": "PARTNER.LOCAL", "relation": "Trusts",
+                            "sidfiltering_off": True}]}
+        cv = bh.control_vectors(graph)
+        ok = (cv["coerce_to_tgt"] == ["WS1"]   # DC1 excluido por isdc
+              and cv["golden_cert"] and cv["golden_cert"][0]["admins"] == ["HELPDESK"]
+              and cv["esc9"] == ["TPL9"]
+              and cv["spoof_sid_history"] == [("CORP.LOCAL", "PARTNER.LOCAL")])
+        return (bool(ok), f"cv={ {k: cv[k] for k in ('coerce_to_tgt', 'golden_cert', 'esc9', 'spoof_sid_history')} }")
+    check("mej", "control_vectors grupo B: CoerceToTGT/GoldenCert/ESC9/SpoofSIDHistory", e_grupo_b)
+
     def e_scrub_perf():
         # anti-regresión: el scrub escala O(len), no O(nº patrones). Con el
         # mega-regex viejo esto tardaba >30 s; margen amplio para no ser flaky.
