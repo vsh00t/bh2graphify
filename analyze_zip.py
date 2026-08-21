@@ -113,6 +113,7 @@ def build_ad_brief(real: dict, agr: dict, max_hops: int) -> list[str]:
     uncon = [n["id"] for n in real["nodes"] if n.get("unconstraineddelegation")]
     quick = bh.adcs_quickwins(real)
     ca_findings = bh.adcs_ca_findings(real)
+    cv = bh.control_vectors(real)
     starts_ind = {p["from"] for p in indirect}
 
     L = [f"**Nodos:** {len(agr['nodes'])} | **links:** {len(agr['links'])}", "",
@@ -163,6 +164,36 @@ def build_ad_brief(real: dict, agr: dict, max_hops: int) -> list[str]:
             for ctrl in c["controllers"][:8]:
                 wk = " (well-known)" if ctrl["wellknown"] else ""
                 L.append(f"- **[{ctrl['esc']}]** `{ctrl['who']}`{wk} -[{ctrl['rel']}]-> `{c['ca']}`")
+        L.append("")
+
+    if any(cv.values()):
+        L += ["## Vectores de control (edges BloodHound)", ""]
+        def _pairs(lst, n=6):
+            return ", ".join(f"`{s}`→`{t}`" for s, t in lst[:n]) + (
+                f" …(+{len(lst) - n})" if len(lst) > n else "")
+        if cv["gpo"]:
+            L.append(f"- **GPO abuse** — {len(cv['gpo'])} GPO controlados por no-admin "
+                     "(control ⇒ código en los equipos de las OU linkeadas):")
+            for gp in cv["gpo"][:6]:
+                who = ", ".join(f"`{s}`" for s, _ in gp["controllers"][:3])
+                enf = " **[ENFORCED]**" if gp["enforced"] else ""
+                L.append(f"  - `{gp['gpo']}`{enf} → **{gp['affected']}** objetos afectados · "
+                         f"controlan: {who}")
+        if cv["shadow"]:
+            L.append(f"- **Shadow Credentials** (AddKeyCredentialLink, {len(cv['shadow'])}): "
+                     + _pairs(cv["shadow"]))
+        if cv["esc4"]:
+            L.append(f"- **ADCS ESC4** (escritura sobre el template, {len(cv['esc4'])}): "
+                     + ", ".join(f"`{e['template']}`" for e in cv["esc4"][:8]))
+        if cv["laps"]:
+            L.append(f"- **LAPS readers** (ReadLAPSPassword, {len(cv['laps'])}): "
+                     + _pairs(cv["laps"]))
+        if cv["rbcd"]:
+            L.append(f"- **RBCD** (AllowedToAct / WriteAccountRestrictions, {len(cv['rbcd'])}): "
+                     + _pairs(cv["rbcd"]))
+        if cv["targeted_kerberoast"]:
+            L.append(f"- **Kerberoast dirigido** (WriteSPN, {len(cv['targeted_kerberoast'])}): "
+                     + _pairs(cv["targeted_kerberoast"]))
         L.append("")
 
     if uncon or kerb or asrep:

@@ -978,6 +978,88 @@ ESC7_RELS = {"Acl_Manageca", "Acl_Managecertificates", "GenericAll",
              "WritePKINameFlag"}
 
 
+# Rights de escritura que dan control efectivo sobre un objeto (GPO/template abuse).
+FULL_CONTROL = {"GenericAll", "WriteDacl", "WriteOwner", "GenericWrite", "Owns",
+                "WriteGPLink", "Acl_Writegplink"}
+
+
+def control_vectors(graph: dict) -> dict:
+    """Vectores de control tipo-BloodHound que el BFS a DA no nombra por sí solo:
+    abuso de GPO (control de GPO → objetos de las OUs linkeadas), Shadow Credentials
+    (AddKeyCredentialLink), ESC4 (escritura sobre un template), lectores de LAPS,
+    RBCD y Kerberoast dirigido (WriteSPN). Cada uno = un edge/primitiva de BloodHound.
+    Se filtran los principals well-known (control legítimo de Tier-0)."""
+    ntype = {n["id"]: n.get("type") for n in graph["nodes"]}
+    wk = set(WELLKNOWN_RIDS.values()) | set(WELLKNOWN_SIDS.values())
+    def not_wk(x):
+        return x.upper().split("@")[0] not in wk
+
+    contains: dict[str, list] = defaultdict(list)
+    gplink: dict[str, list] = defaultdict(list)
+    ctrl_to: dict[str, list] = defaultdict(list)
+    by_rel: dict[str, list] = defaultdict(list)
+    for lk in graph["links"]:
+        r, s, t = lk["relation"], lk["source"], lk["target"]
+        if r == "Contains":
+            contains[s].append(t)
+        elif r == "GpLink":
+            gplink[s].append((t, bool(lk.get("enforced"))))
+        if r in FULL_CONTROL:
+            ctrl_to[t].append((s, r))
+        by_rel[r].append(lk)
+
+    def descendants(sid: str, depth: int = 8) -> set:
+        seen, frontier, d = set(), [sid], 0
+        while frontier and d < depth:
+            nxt = []
+            for f in frontier:
+                for c in contains.get(f, []):
+                    if c not in seen:
+                        seen.add(c); nxt.append(c)
+            frontier, d = nxt, d + 1
+        return seen
+
+    # GPO abuse: GPO controlado por no-admin → objetos de las OUs/dominios linkeados
+    gpo = []
+    for gid, tp in ntype.items():
+        if tp != "gpo":
+            continue
+        ctrls = [(s, r) for s, r in ctrl_to.get(gid, []) if not_wk(s)]
+        if not ctrls:
+            continue
+        affected, enforced = set(), False
+        for target, enf in gplink.get(gid, []):
+            enforced = enforced or enf
+            if ntype.get(target) in ("computer", "user"):
+                affected.add(target)
+            for dsc in descendants(target):
+                if ntype.get(dsc) in ("computer", "user"):
+                    affected.add(dsc)
+        if affected:
+            gpo.append({"gpo": gid, "controllers": ctrls,
+                        "affected": len(affected), "enforced": enforced})
+    gpo.sort(key=lambda x: -x["affected"])
+
+    def pairs(*rels):
+        out = []
+        for r in rels:
+            out += [(lk["source"], lk["target"]) for lk in by_rel.get(r, []) if not_wk(lk["source"])]
+        return sorted(set(out))
+
+    esc4 = [{"template": tid, "controllers": [(s, r) for s, r in ctrl_to.get(tid, []) if not_wk(s)]}
+            for tid, tp in ntype.items() if tp == "certtemplate" and
+            any(not_wk(s) for s, _ in ctrl_to.get(tid, []))]
+
+    return {
+        "gpo": gpo,
+        "shadow": pairs("Acl_Addkeycredentiallink"),                       # Shadow Credentials
+        "esc4": esc4,
+        "laps": pairs("Acl_Readlapspassword", "Acl_Synclapspassword"),     # LAPS
+        "rbcd": pairs("AllowedToAct", "Acl_Addallowedtoact", "Acl_Writeaccountrestrictions"),
+        "targeted_kerberoast": pairs("Acl_Writespn"),                      # WriteSPN
+    }
+
+
 def adcs_ca_findings(graph: dict) -> list[dict]:
     ca_ids = {n["id"] for n in graph.get("nodes") or []
               if n.get("type") in ("enterpriseca", "rootca")}

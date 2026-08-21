@@ -420,6 +420,28 @@ def caso_mejoras():
         return (ok, f"alias={alias} deanon={deanon}")
     check("mej", "graph_q: consulta por nombre real + de-anon de salida", e_deanon)
 
+    def e_control_vectors():
+        graph = {"nodes": [{"id": "U1", "type": "user"}, {"id": "GPO_X", "type": "gpo"},
+                           {"id": "OU_1", "type": "ou"}, {"id": "PC1", "type": "computer"},
+                           {"id": "PC2", "type": "computer"}, {"id": "TPL_1", "type": "certtemplate"},
+                           {"id": "PC3", "type": "computer"}, {"id": "DOMAIN_ADMINS@D", "type": "group"}],
+                 "links": [{"source": "U1", "target": "GPO_X", "relation": "GenericAll"},
+                           {"source": "DOMAIN_ADMINS@D", "target": "GPO_X", "relation": "GenericAll"},
+                           {"source": "GPO_X", "target": "OU_1", "relation": "GpLink", "enforced": True},
+                           {"source": "OU_1", "target": "PC1", "relation": "Contains"},
+                           {"source": "OU_1", "target": "PC2", "relation": "Contains"},
+                           {"source": "U1", "target": "PC3", "relation": "Acl_Addkeycredentiallink"},
+                           {"source": "U1", "target": "PC1", "relation": "Acl_Readlapspassword"},
+                           {"source": "U1", "target": "TPL_1", "relation": "WriteDacl"},
+                           {"source": "U1", "target": "PC2", "relation": "AllowedToAct"}]}
+        cv = bh.control_vectors(graph)
+        ok = (cv["gpo"] and cv["gpo"][0]["affected"] == 2 and cv["gpo"][0]["enforced"]
+              and len(cv["gpo"][0]["controllers"]) == 1   # DA well-known filtrado
+              and cv["shadow"] == [("U1", "PC3")] and cv["esc4"]
+              and cv["laps"] == [("U1", "PC1")] and cv["rbcd"] == [("U1", "PC2")])
+        return (bool(ok), f"cv={cv}")
+    check("mej", "control_vectors: GPO abuse + Shadow/LAPS/ESC4/RBCD", e_control_vectors)
+
     def e_scrub_perf():
         # anti-regresión: el scrub escala O(len), no O(nº patrones). Con el
         # mega-regex viejo esto tardaba >30 s; margen amplio para no ser flaky.
