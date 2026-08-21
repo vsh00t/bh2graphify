@@ -505,6 +505,83 @@ class BHGraph:
 WELLKNOWN_DOMAIN_PARTS = {"USERS", "COMPUTERS", "DOMAIN CONTROLLERS", "ADMINSDROP",
                           "SYSTEM", "MICROSOFT", "PROGRAM DATA", "LOSTANDFOUND"}
 
+
+class _ScrubAutomaton:
+    """Aho-Corasick para reemplazo multi-patrón en O(len) por string.
+
+    Sustituye al mega-regex de alternancias `p1|p2|…|pN`, que es O(N) por
+    posición (Python `re` no lo compila a DFA): con miles de nombres reales el
+    scrub tardaba ~30 s en un dominio mediano. Semántica idéntica al regex:
+    case-insensitive, leftmost-longest, no solapado, izquierda→derecha —
+    verificada carácter a carácter contra el regex sobre datos reales.
+    """
+    __slots__ = ("goto", "fail", "outlen", "outrep", "olink")
+
+    def __init__(self, mapping: dict):
+        goto = [{}]; outlen = [0]; outrep = [None]
+        for pat, rep in mapping.items():
+            nd = 0
+            for ch in pat:
+                nx = goto[nd].get(ch)
+                if nx is None:
+                    nx = len(goto)
+                    goto.append({}); outlen.append(0); outrep.append(None)
+                    goto[nd][ch] = nx
+                nd = nx
+            if len(pat) > outlen[nd]:          # el patrón más largo gana en un nodo
+                outlen[nd] = len(pat); outrep[nd] = rep
+        fail = [0] * len(goto); olink = [-1] * len(goto)
+        q = deque()
+        for ch, nx in goto[0].items():
+            q.append(nx)
+        while q:
+            r = q.popleft()
+            for ch, nx in goto[r].items():
+                q.append(nx)
+                f = fail[r]
+                while f and ch not in goto[f]:
+                    f = fail[f]
+                fail[nx] = goto[f].get(ch, 0)
+                fn = fail[nx]
+                olink[nx] = fn if outrep[fn] is not None else olink[fn]
+        self.goto, self.fail = goto, fail
+        self.outlen, self.outrep, self.olink = outlen, outrep, olink
+
+    def replace(self, text: str) -> str:
+        up = text.upper()
+        # .upper() casi siempre preserva longitud; si no (p.ej. 'ß'→'SS'),
+        # reconstruir sobre `up` mantiene alineados los índices (nunca filtra).
+        src = text if len(up) == len(text) else up
+        n = len(up)
+        goto, fail, outrep, outlen, olink = \
+            self.goto, self.fail, self.outrep, self.outlen, self.olink
+        best = {}
+        nd = 0
+        for j in range(n):
+            ch = up[j]
+            while nd and ch not in goto[nd]:
+                nd = fail[nd]
+            nd = goto[nd].get(ch, 0)
+            k = nd
+            while k != -1:
+                if outrep[k] is not None:
+                    start = j - outlen[k] + 1
+                    p = best.get(start)
+                    if p is None or outlen[k] > p[0] - start:
+                        best[start] = (j + 1, outrep[k])
+                k = olink[k]
+        if not best:
+            return text
+        out = []; i = 0
+        while i < n:
+            m = best.get(i)
+            if m and m[0] > i:
+                out.append(m[1]); i = m[0]
+            else:
+                out.append(src[i]); i += 1
+        return "".join(out)
+
+
 class Anonymizer:
     def __init__(self, keep_wellknown: bool = True):
         self.keep_wellknown = keep_wellknown
@@ -513,7 +590,8 @@ class Anonymizer:
         self.name_map: dict[str, str] = {}      # nombre real -> alias
         self._scrub_map: dict[str, str] = {}
         self._dom_alias_by_sid: dict[str, str] = {}
-        self._scrub_re = None
+        self._scrub_ac: _ScrubAutomaton | None = None
+        self._scrub_cache: dict[str, str] = {}
 
     def alias(self, sid: str, kind: str, real_name: str) -> str:
         if sid in self.map:
@@ -582,18 +660,20 @@ class Anonymizer:
 
 
     def scrub(self, value):
-        """Reemplaza nombres reales por alias dentro de strings de props (case-insensitive).
-        Un solo regex alternante precompilado (longest-first) — O(1) pasadas por string,
-        no O(n) re.sub por entrada del mapa."""
-        if not isinstance(value, str):
+        """Reemplaza nombres reales por alias dentro de strings de props
+        (case-insensitive, leftmost-longest). Aho-Corasick O(len) por string +
+        memoización de valores repetidos (los edges traen miles de `ace_type`
+        idénticos): un dominio mediano pasa de ~30 s a <1 s."""
+        if not isinstance(value, str) or self._scrub_ac is None:
             return value
-        if self._scrub_re is not None:
-            return self._scrub_re.sub(
-                lambda m: self._scrub_map.get(m.group(0).upper(), m.group(0)), value)
-        return value
+        hit = self._scrub_cache.get(value)
+        if hit is None:
+            hit = self._scrub_ac.replace(value)
+            self._scrub_cache[value] = hit
+        return hit
 
     def _build_scrub_map(self):
-        # real_name (upper) → alias; orden de aplicación: más largo primero
+        # real_name (upper) → alias; el automaton resuelve el "match más largo"
         m = {}
         for sid, entry in self.map.items():
             real = (entry.get("real") or "").strip()
@@ -611,11 +691,8 @@ class Anonymizer:
                 if suffix and suffix not in m:
                     m[suffix] = self._domain_alias(suffix)
         self._scrub_map = m
-        # regex alternante único (longest-first preserva "match más largo gana")
-        import re
-        pats = sorted(m, key=len, reverse=True)
-        self._scrub_re = re.compile("|".join(re.escape(p) for p in pats),
-                                    flags=re.IGNORECASE) if pats else None
+        self._scrub_cache = {}
+        self._scrub_ac = _ScrubAutomaton(m) if m else None
 
     def scrub_props(self, props: dict) -> dict:
         out = {}

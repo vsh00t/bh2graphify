@@ -11,7 +11,9 @@ description: >
   tipificados con severidad, precondición, evidencia y remediación.
   Triggers — analizar graph.json, análisis de grafo AD, attack paths
   bloodhound sin neo4j, hallazgos desde colección sharphound/azurehound,
-  ESC1 ESC4 ESC7, escalada de privilegios AD/Entra sobre grafo.
+  ESC1 ESC4 ESC7, escalada de privilegios AD/Entra sobre grafo,
+  **analizar un .zip/dump crudo de SharpHound o AzureHound** (BloodHound),
+  colección .json cruda de bloodhound → correr analyze_zip.py primero.
 ---
 
 # Graph Pentest Analysis — razonamiento ofensivo sobre graph.json
@@ -19,6 +21,26 @@ description: >
 Eres el analista. Recibes la salida de `bh2graphify`/`analyze_zip.py` y debes
 producir hallazgos priorizados. El parsing ya está hecho — tu valor es la
 **correlación y el razonamiento que el BFS automático no hace**.
+
+## Paso 0 — ¿tienes un .zip o .json crudo (no un graph.json)?
+
+Si lo que tienes es un **dump crudo** de SharpHound/AzureHound (un `.zip`, o
+archivos `*_users.json`/`*_computers.json`/`azurehound.json`) y **NO** existe aún
+`graph.json`, **no lo analices a mano ni leas los JSON crudos**: primero
+transfórmalo con el orquestador (localiza el repo `bh2graphify` — el que contiene
+`analyze_zip.py`):
+
+```bash
+python3 <repo>/bh2graphify/analyze_zip.py <coleccion.zip> --out <DIR_SALIDA>
+```
+
+Detecta SharpHound/AzureHound/híbrido, y produce en `<DIR_SALIDA>/graphify-out/`:
+`graph.json` (anonimizado), `RESUMEN.md` (attack paths + ADCS + híbrido, nombres
+reales, 600) y `map.json` (reversión, 600). Es rápido (un dominio de ~3.5K nodos
+en <2 s) y determinista. Recién **con `graph.json` + `RESUMEN.md`** aplica el
+resto de este skill. Exit `1` = leak duro (revisar antes de sacar el grafo),
+`2` = zip sin data reconocible. Datasets grandes también van directo:
+`python3 <repo>/bh2graphify/bh2graphify.py <dir_o_zip_extraido> --out graph.json --save-map map.json --attack-paths`.
 
 ## Input contract
 

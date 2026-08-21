@@ -125,8 +125,9 @@ Validado además con: lab ADCS real 3 dominios (31 JSON SH v3, 1450 nodos /
   `{Collected, FailureReason, Results}` — iterar `Results`
 - SIDs con prefijo de dominio (`DOM-S-1-5-32-544`) → strip antes de matchear
 - Well-known RID table verificada (555 ≠ 556)
-- Perf: scrub con regex alternante único precompilado (~300x vs re.sub por
-  entrada) — 13K nodos en segundos
+- Perf: scrub con **Aho-Corasick** O(len) por string + memoización (el mega-regex
+  de alternancias es O(nº patrones)/string y colgaba ~30 s en un dominio real de
+  3.5K nodos / 65K edges; ahora <2 s, salida byte-idéntica verificada)
 - Semántica: `Contains`/`GpLink` NO son control (no reversibles en paths)
 - `GPOChanges`: usar `AffectedComputers` (verdad de campo SH v3). Sin ella,
   restringir al MISMO dominio — nunca fan-out a todo el grafo (fabrica AdminTo

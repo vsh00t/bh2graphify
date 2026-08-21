@@ -330,6 +330,39 @@ def caso_mejoras():
         return (ok, f"corr={corr}")
     check("mej", "correlación híbrida cloud↔on-prem por SID on-prem", e_hybrid)
 
+    def e_scrub_ac():
+        # el scrub Aho-Corasick debe ser byte-idéntico al regex de alternancias
+        # (oracle) — un fallo aquí = fuga de PII. Casos: solapamiento longest-first,
+        # acentos (upper), separadores de FQDN/SPN, substring embebido.
+        import re as _re
+        mapping = {"ADMINISTRADOR DE NOMINA": "GROUP_0001", "ADMIN": "USER_0009",
+                   "HOST-01": "COMP_0002", "CORP.LOCAL": "DOM_01",
+                   "NÓMINA".upper(): "GROUP_0007", "MARÍA".upper(): "USER_0003"}
+        pats = sorted(mapping, key=len, reverse=True)
+        rx = _re.compile("|".join(_re.escape(p) for p in pats), flags=_re.IGNORECASE)
+        ref = lambda s: rx.sub(lambda m: mapping.get(m.group(0).upper(), m.group(0)), s)
+        ac = bh._ScrubAutomaton(mapping)
+        corpus = ["TERMSRV/HOST-01.CORP.LOCAL", "admin del ADMINISTRADOR DE NOMINA",
+                  "contacto maría en nómina", "sin coincidencias 123",
+                  "ADMINistradorDeNomina pegado", ""]
+        diffs = [(s, ref(s), ac.replace(s)) for s in corpus if ref(s) != ac.replace(s)]
+        return (not diffs, f"diffs={diffs[:2]}")
+    check("mej", "scrub Aho-Corasick idéntico al regex de referencia", e_scrub_ac)
+
+    def e_scrub_perf():
+        # anti-regresión: el scrub escala O(len), no O(nº patrones). Con el
+        # mega-regex viejo esto tardaba >30 s; margen amplio para no ser flaky.
+        import time as _tm
+        mapping = {f"NOMBREREAL{i:05d}": f"USER_{i:04d}" for i in range(2000)}
+        ac = bh._ScrubAutomaton(mapping)
+        corpus = [f"texto con NOMBREREAL{i:05d} embebido" for i in range(2000)]
+        s = _tm.time()
+        for x in corpus:
+            ac.replace(x)
+        dt = _tm.time() - s
+        return (dt < 5.0, f"{len(corpus)} scrubs / {len(mapping)} patrones en {dt:.2f}s")
+    check("mej", "scrub escala O(len) no O(patrones) (anti-regresión)", e_scrub_perf)
+
 
 # helper para ds5 e4: reconstruir el map (el runner no lo devuelve)
 _anon_map_cache = {}
