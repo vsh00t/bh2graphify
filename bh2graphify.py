@@ -778,6 +778,10 @@ def build_graph(bh: BHGraph, anon: Anonymizer | None) -> dict:
 # Attack paths (BFS dirigido; HasSession/Contains/GpLink reversibles)
 # ──────────────────────────────────────────────────────────────────────────────
 REVERSIBLE = {"HasSession", "HasPrivSession"}
+# placement/estructura — NO son control: jamás son un paso de un attack path.
+# Sin esto el BFS "escala" por CN=Users→Contains→DOMAIN ADMINS (todo Domain User
+# llegaría a DA), o por GpLink/Trusts. graph_q.py ya los excluía; aquí faltaba.
+NON_ATTACK_RELS = {"Contains", "GpLink", "Trusts"}
 
 def attack_paths(graph: dict, max_hops: int = 6, top: int = 12) -> list[dict]:
     # Grafo transpuesto (predecesores). Un solo BFS inverso por target — O(T·(V+E))
@@ -785,6 +789,8 @@ def attack_paths(graph: dict, max_hops: int = 6, top: int = 12) -> list[dict]:
     # dirigidos, con edges reversibles (HasSession/HasPrivSession) expandidos igual.
     radj: dict[str, list[tuple[str, str, bool]]] = defaultdict(list)
     for lk in graph["links"]:
+        if lk["relation"] in NON_ATTACK_RELS:  # placement, no control
+            continue
         radj[lk["target"]].append((lk["source"], lk["relation"], False))
         if lk["relation"] in REVERSIBLE:
             radj[lk["source"]].append((lk["target"], lk["relation"], True))
@@ -846,15 +852,16 @@ def attack_paths(graph: dict, max_hops: int = 6, top: int = 12) -> list[dict]:
         for d, t in hit[:2]:  # hasta 2 targets al mismo coste mínimo
             if d > best_d:
                 break
-            hops, cur = [], start
+            hops, nodes, cur = [], [start], start
             while cur != t:
                 nxt, rel, rev = prev_by_t[t][cur]
                 hops.append(f"{cur} -[{rel}{'↩' if rev else ''}]-> {nxt}" if rev
                             else f"{cur} -[{rel}]-> {nxt}")
+                nodes.append(nxt)
                 cur = nxt
             results.append({"from": start, "target": t,
                             "why": targets[t], "hops": d,
-                            "path": " | ".join(hops)})
+                            "path": " | ".join(hops), "nodes": nodes})
     results.sort(key=lambda r: (r["hops"], r["from"]))
     return results[:top]
 

@@ -349,6 +349,32 @@ def caso_mejoras():
         return (not diffs, f"diffs={diffs[:2]}")
     check("mej", "scrub Aho-Corasick idéntico al regex de referencia", e_scrub_ac)
 
+    def e_no_contains():
+        # Contains es placement, no control: user→CN=Users→(Contains)→DA NO es path
+        gr = {"nodes": [{"id": "U", "type": "user"},
+                        {"id": "CN=USERS", "type": "container"},
+                        {"id": "DOMAIN ADMINS@D", "type": "group"}],
+              "links": [{"source": "U", "target": "CN=USERS", "relation": "MemberOf"},
+                        {"source": "CN=USERS", "target": "DOMAIN ADMINS@D", "relation": "Contains"}]}
+        reach = [p for p in bh.attack_paths(gr, max_hops=6, top=50) if p["from"] == "U"]
+        return (not reach, f"U no debe escalar por Contains: {reach}")
+    check("mej", "attack_paths no atraviesa Contains (sin falsos DA)", e_no_contains)
+
+    def e_brief():
+        # brief ejecutivo: choke points + escaladas dedupeadas (2 cuentas, 1 vía)
+        real = {"nodes": [{"id": "U1", "type": "user"}, {"id": "U2", "type": "user"},
+                          {"id": "CHOKE", "type": "computer"}, {"id": "DA1", "type": "user"},
+                          {"id": "DOMAIN ADMINS@D", "type": "group"}],
+                "links": [{"source": "U1", "target": "CHOKE", "relation": "AdminTo"},
+                          {"source": "U2", "target": "CHOKE", "relation": "AdminTo"},
+                          {"source": "DA1", "target": "CHOKE", "relation": "HasSession"},
+                          {"source": "DA1", "target": "DOMAIN ADMINS@D", "relation": "MemberOf"}]}
+        brief = "\n".join(azip.build_ad_brief(real, real, 6))
+        ok = ("Choke points" in brief and "`CHOKE`" in brief
+              and "Escaladas indirectas" in brief and "(+1 cuenta" in brief)
+        return (ok, f"brief={brief[:120]!r}")
+    check("mej", "brief ejecutivo: choke points + escaladas dedupeadas", e_brief)
+
     def e_scrub_perf():
         # anti-regresión: el scrub escala O(len), no O(nº patrones). Con el
         # mega-regex viejo esto tardaba >30 s; margen amplio para no ser flaky.

@@ -28,6 +28,7 @@ import re
 import stat
 import sys
 import zipfile
+from collections import Counter, defaultdict
 from pathlib import Path
 
 HERE = Path(__file__).parent
@@ -79,32 +80,102 @@ def analyze_sh(files: list[Path], gdir: Path, max_hops: int):
     _save_deliverables(gdir, "", agr, anon.map)
 
     real = bh.build_graph(g, None)
-    paths = bh.attack_paths(real, max_hops, top=15)
+    lines = build_ad_brief(real, agr, max_hops)
+    return "\n".join(lines), hard, soft, g, real
+
+
+def build_ad_brief(real: dict, agr: dict, max_hops: int) -> list[str]:
+    """Brief EJECUTIVO priorizado (no un volcado de DA directos). El modelo lee
+    esto — no los JSON crudos: Tier-0 directo resumido, choke points, escaladas
+    indirectas dedupeadas por vía compartida, ADCS y superficie."""
+    paths = bh.attack_paths(real, max_hops, top=400)
+    direct = [p for p in paths if p["hops"] == 1 and "member of" in p["why"]]
+    indirect = [p for p in paths if p["hops"] >= 2]
+    # una cuenta puede ser DA y EA a la vez → dedup para no contarla dos veces
+    direct_accts = list(dict.fromkeys(sorted(p["from"] for p in direct)))
+    ntype = {n["id"]: n.get("type") for n in real["nodes"]}
+
+    # choke points: nodos intermedios por los que pasan más rutas de escalada
+    choke = Counter()
+    for p in indirect:
+        for n in p["nodes"][1:-1]:
+            choke[n] += 1
+
+    # escaladas dedupeadas: colapsar todos los starts que comparten la misma cola
+    tails: dict = defaultdict(list)
+    for p in indirect:
+        tails[tuple(p["nodes"][1:])].append(p["from"])
+    grouped = sorted(tails.items(), key=lambda kv: len(kv[1]), reverse=True)
+
+    kerb = [n["id"] for n in real["nodes"] if n.get("type") == "user" and n.get("kerberoastable")]
+    asrep = [n["id"] for n in real["nodes"] if n.get("dontreqpreauth")]
+    uncon = [n["id"] for n in real["nodes"] if n.get("unconstraineddelegation")]
     quick = bh.adcs_quickwins(real)
     ca_findings = bh.adcs_ca_findings(real)
+    starts_ind = {p["from"] for p in indirect}
 
-    lines = [f"**Nodos:** {len(agr['nodes'])} | **links:** {len(agr['links'])}", "",
-             "## Attack paths (nombres reales)", ""]
-    if paths:
-        for r in paths:
-            lines.append(f"- **[{r['hops']}h]** `{r['from']}` → `{r['target']}` — {r['why']}")
-            lines.append(f"  - `{r['path']}`")
+    L = [f"**Nodos:** {len(agr['nodes'])} | **links:** {len(agr['links'])}", "",
+         "## Resumen ejecutivo", "",
+         f"- **Tier-0 directo:** {len(direct_accts)} cuentas ya son DA/EA/Administrator "
+         f"(higiene, no son rutas).",
+         f"- **Escaladas a Tier-0:** {len(indirect)} rutas de 2+ hops desde "
+         f"{len(starts_ind)} cuentas no-admin."]
+    if choke:
+        L.append("- **Choke points:** " + ", ".join(f"`{c}`" for c, _ in choke.most_common(3))
+                 + " (comprometerlos ⇒ Tier-0).")
+    L.append(f"- **Superficie:** {len(kerb)} kerberoastables · {len(asrep)} AS-REP · "
+             f"{len(uncon)} unconstrained delegation.")
+    L.append("")
+
+    if choke:
+        L += ["## Choke points — comprometer el nodo ⇒ camino a Tier-0", ""]
+        for c, n in choke.most_common(8):
+            L.append(f"- `{c}` ({ntype.get(c, '?')}) — en **{n}** rutas de escalada")
+        L.append("")
+
+    L += ["## Escaladas indirectas (dedupeadas por vía compartida)", ""]
+    if grouped:
+        for tail, starts in grouped[:12]:
+            ej = sorted(starts)[0]
+            more = f" (+{len(starts) - 1} cuentas)" if len(starts) > 1 else ""
+            L.append(f"- **[{len(tail)}h]** `{ej}`{more} → " + " → ".join(f"`{x}`" for x in tail))
     else:
-        lines.append("- (sin paths a DA/DCSync dentro del límite de hops)")
+        L.append("- (sin escaladas indirectas dentro del límite de hops)")
+    L.append("")
+
+    if direct_accts:
+        L += [f"## Tier-0 directo ({len(direct_accts)} cuentas — revisar necesidad de cada una)", ""]
+        L.append(", ".join(f"`{x}`" for x in direct_accts[:24])
+                 + (f" …y {len(direct_accts) - 24} más." if len(direct_accts) > 24 else ""))
+        L.append("")
+
     if quick:
-        lines += ["", "## ADCS quick wins (ESC1/ESC2/ESC3)", ""]
+        L += ["## ADCS quick wins (ESC1/ESC2/ESC3)", ""]
         for q in quick[:15]:
             en = q["enroll"] or q["wk_enroll"]
             who = ", ".join(en[:6]) if en else "(sin Enroll directo)"
-            lines.append(f"- **[{q['esc']}]** `{q['template']}` — Enroll: {who}")
+            L.append(f"- **[{q['esc']}]** `{q['template']}` — Enroll: {who}")
+        L.append("")
     if ca_findings:
-        lines += ["", "## ADCS — control sobre CA (ESC7 / takeover)", ""]
+        L += ["## ADCS — control sobre CA (ESC7 / takeover)", ""]
         for c in ca_findings[:10]:
             for ctrl in c["controllers"][:8]:
                 wk = " (well-known)" if ctrl["wellknown"] else ""
-                lines.append(f"- **[{ctrl['esc']}]** `{ctrl['who']}`{wk} "
-                             f"-[{ctrl['rel']}]-> `{c['ca']}`")
-    return "\n".join(lines), hard, soft, g, real
+                L.append(f"- **[{ctrl['esc']}]** `{ctrl['who']}`{wk} -[{ctrl['rel']}]-> `{c['ca']}`")
+        L.append("")
+
+    if uncon or kerb or asrep:
+        L += ["## Superficie de ataque", ""]
+        if uncon:
+            L.append(f"- **Unconstrained delegation** ({len(uncon)}): "
+                     + ", ".join(f"`{x}`" for x in uncon[:8]))
+        if kerb:
+            L.append(f"- **Kerberoastables** ({len(kerb)}): "
+                     + ", ".join(f"`{x}`" for x in sorted(kerb)[:8]))
+        if asrep:
+            L.append(f"- **AS-REP roastables** ({len(asrep)}): "
+                     + ", ".join(f"`{x}`" for x in sorted(asrep)[:8]))
+    return L
 
 
 def analyze_az(files: list[Path], gdir: Path, max_hops: int):

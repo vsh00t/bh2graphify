@@ -453,8 +453,14 @@ def build_graph(az: AZGraph, anon: AZAnonymizer | None) -> dict:
 def attack_paths(graph: dict, max_hops: int = 5, top: int = 15) -> list[dict]:
     # Grafo transpuesto + un BFS inverso por target — O(T·(V+E)) en vez de un BFS
     # forward por nodo. Misma salida (shortest path dirigido a cada target).
+    # Contains (jerarquía MG→sub→RG→recurso) es placement, no control: los roles
+    # RBAC ya se emiten como edges directos a cada scope, así que no hace falta
+    # atravesarlo — y hacerlo fabrica escaladas falsas.
+    NON_ATTACK = {"Contains", "GpLink"}
     radj: dict[str, list[tuple[str, str]]] = defaultdict(list)
     for lk in graph["links"]:
+        if lk["relation"] in NON_ATTACK:
+            continue
         radj[lk["target"]].append((lk["source"], lk["relation"]))
 
     node_types = {n["id"]: n.get("type") for n in graph["nodes"]}
@@ -497,13 +503,14 @@ def attack_paths(graph: dict, max_hops: int = 5, top: int = 15) -> list[dict]:
         if not hit:
             continue
         for d, t in hit[:1]:
-            hops, cur = [], start
+            hops, nodes, cur = [], [start], start
             while cur != t:
                 nxt, rel = prev_by_t[t][cur]
                 hops.append(f"{cur} -[{rel}]-> {nxt}")
+                nodes.append(nxt)
                 cur = nxt
             results.append({"from": start, "target": t, "why": targets[t], "hops": d,
-                            "path": " | ".join(hops)})
+                            "path": " | ".join(hops), "nodes": nodes})
     results.sort(key=lambda r: (r["hops"], r["from"]))
     return results[:top]
 
