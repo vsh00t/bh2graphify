@@ -5,32 +5,36 @@ procesar dumps de BloodHound: el trabajo pesado lo hace `bh2graphify` (2 s), el
 modelo solo razona sobre un brief de ~5 KB. Así el agente no se pone a parsear los
 JSON crudos (lento, errático, cuelgues).
 
-## Qué hay acá
+## Instalación (una sola vez)
 
-| Archivo | Qué es |
+Desde donde hayas clonado el repo:
+
+```bash
+./integrations/opencode/install.sh
+```
+
+El script **detecta solo** dónde está el repo (no hay rutas hardcodeadas), persiste
+esa ubicación en `~/.config/bh2graphify/repo`, y crea **symlinks** del command y del
+skill hacia el repo. No importa en qué carpeta lo clones.
+
+Después de eso, **actualizar es solo**:
+
+```bash
+git pull
+```
+
+Los symlinks reflejan los cambios y `analyze_zip.py` re-copia `graph_q.py` junto al
+grafo en cada corrida — no hay que reinstalar nada.
+
+## Qué deja instalado
+
+| Symlink | Apunta a |
 |---|---|
-| `commands/analyze-bh.md` | Command `/analyze-bh <zip>`: corre `analyze_zip.py` e inyecta el brief en el prompt |
-| `AGENTS.md` | Regla para el workspace: dumps de BloodHound → `/analyze-bh`, nunca parsear a mano |
+| `~/.config/opencode/commands/analyze-bh.md` (y `command/`) | `integrations/opencode/commands/analyze-bh.md` |
+| `~/.agents/skills/graph-pentest-analysis/` | `skill/` del repo (`SKILL.md` + `graph_q.py`) |
 
-## Instalación
-
-Asumiendo el repo en `~/Desktop/bh2graphify` (si está en otro lado, exportá
-`BH2GRAPHIFY=/ruta/al/repo` en tu entorno, o editá esa variable en el command).
-
-**Command (global, para todos los engagements):**
-
-```bash
-mkdir -p ~/.config/opencode/commands && cp ~/Desktop/bh2graphify/integrations/opencode/commands/analyze-bh.md ~/.config/opencode/commands/
-```
-
-**AGENTS.md (en el workspace donde trabajás los dumps):**
-
-```bash
-cp ~/Desktop/bh2graphify/integrations/opencode/AGENTS.md /ruta/a/tu/workspace/AGENTS.md
-```
-
-> Nota: la doc de opencode usa `commands/` (plural). Si tu versión escanea
-> `command/` (singular), copiá el `.md` ahí en su lugar.
+Se enlaza en `commands/` y `command/` porque distintas versiones de opencode usan
+uno u otro nombre.
 
 ## Uso
 
@@ -39,6 +43,18 @@ cp ~/Desktop/bh2graphify/integrations/opencode/AGENTS.md /ruta/a/tu/workspace/AG
 ```
 
 El agente recibe el brief (attack paths + choke points + ADCS + superficie) ya
-masticado y responde/priorizando sobre eso. Para profundizar en un nodo puntual usa
-`graph_q.py` sobre `~/pentest-data/current/graphify-out/graph.json` — nunca los JSON
-crudos.
+masticado. Para profundizar en un nodo usa el CLI que queda **junto al grafo**:
+
+```bash
+python3 ~/pentest-data/current/graphify-out/graph_q.py controllers "GROUP_0007"
+python3 ~/pentest-data/current/graphify-out/graph_q.py paths-to "DOMAIN_ADMINS@DOM_01"
+```
+
+Nunca los JSON crudos.
+
+## Notas
+
+- Requiere Python 3.8+ (`python3` en el PATH) y opencode.
+- Si preferís no usar symlinks, podés copiar los archivos a mano, pero entonces
+  cada `git pull` requiere volver a copiarlos. Los symlinks lo evitan.
+- Para apuntar a un repo distinto sin reinstalar, exportá `BH2GRAPHIFY=/otra/ruta`.

@@ -10,7 +10,7 @@ proponer las rutas más eficientes a Tier-0.
 
 Brief del dump `$ARGUMENTS`:
 
-!`BH="${BH2GRAPHIFY:-$HOME/Desktop/bh2graphify}"; OUT="$HOME/pentest-data/current"; python3 "$BH/analyze_zip.py" "$ARGUMENTS" --out "$OUT" --clean 2>&1 | tail -2; echo; echo '===== BRIEF ====='; cat "$OUT/graphify-out/RESUMEN.md"`
+!`BH="${BH2GRAPHIFY:-$(cat "$HOME/.config/bh2graphify/repo" 2>/dev/null)}"; OUT="$HOME/pentest-data/current"; python3 "$BH/analyze_zip.py" "$ARGUMENTS" --out "$OUT" --clean 2>&1 | tail -2; echo; echo '===== BRIEF ====='; cat "$OUT/graphify-out/RESUMEN.md"`
 
 Cómo leer el brief:
 - **Choke points** = lo más valioso: un nodo por el que pasan N rutas ⇒ comprometerlo
