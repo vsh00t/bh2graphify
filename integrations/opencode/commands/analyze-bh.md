@@ -29,12 +29,14 @@ Para profundizar en un nodo, usá el CLI `graph_q.py` que quedó **junto al graf
 Q="$HOME/pentest-data/current/graphify-out/graph_q.py"
 python3 "$Q" --help
 python3 "$Q" stats
-python3 "$Q" controllers "GROUP_0007"                 # quién controla ese nodo
-python3 "$Q" paths-to "DOMAIN_ADMINS@DOM_01"          # quién llega y cómo
-python3 "$Q" find-props hasspn=true                   # kerberoastables
-python3 "$Q" by-relation Acl_Addkeycredentiallink     # Shadow Credentials
+# Usá los NOMBRES REALES tal como aparecen en el brief — graph_q traduce solo:
+python3 "$Q" controllers "SRVR-CRONOS1A.DOMINIO.LOCAL"   # quién controla ese nodo
+python3 "$Q" paths-to  "DOMAIN ADMINS@DOMINIO.LOCAL"     # quién llega y cómo
+python3 "$Q" find-props hasspn=true                       # kerberoastables
+python3 "$Q" by-relation Acl_Addkeycredentiallink         # Shadow Credentials
 ```
 
-(`--graph`/`--map` ya apuntan por defecto a los archivos de ese dir.) Reglas: no
-inventes edges que no estén en el grafo; si viene anonimizado, de-anon solo al
-final con `deanon`/`map.json`.
+`graph_q.py` acepta el nombre real **o** el alias y devuelve nombres reales (usa el
+`map.json` de al lado). Con `--anon` trabaja en aliases (para sacar el grafo fuera
+del operador). `--graph`/`--map` ya apuntan por defecto a ese dir. Regla: no
+inventes edges que no estén en el grafo.

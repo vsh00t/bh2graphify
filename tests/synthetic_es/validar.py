@@ -395,6 +395,31 @@ def caso_mejoras():
                 f"path={p} tiene_main={hasattr(gq, 'main')}")
     check("mej", "graph_q: CLI presente + path no atraviesa Contains", e_graphq_cli)
 
+    def e_deanon():
+        import importlib.util
+        import tempfile
+        d = Path(tempfile.mkdtemp())
+        graph = {"directed": True, "multigraph": True, "graph": {"anonymized": True},
+                 "nodes": [{"id": "USER_0001", "label": "USER_0001", "type": "user"},
+                           {"id": "DOMAIN_ADMINS@DOM_01", "label": "x", "type": "group"}],
+                 "links": [{"source": "USER_0001", "target": "DOMAIN_ADMINS@DOM_01",
+                            "relation": "MemberOf"}]}
+        mp = {"mapping": {"s1": {"alias": "USER_0001", "real": "JPEREZ@CORP.LOCAL", "kind": "user"},
+                          "s2": {"alias": "DOMAIN_ADMINS@DOM_01",
+                                 "real": "DOMAIN ADMINS@CORP.LOCAL", "kind": "group"}}}
+        (d / "graph.json").write_text(json.dumps(graph))
+        (d / "map.json").write_text(json.dumps(mp))
+        spec = importlib.util.spec_from_file_location("graph_q_d", HERE / "skill" / "graph_q.py")
+        gq = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(gq)
+        g = gq.GraphQ(str(d / "graph.json"), map_path=str(d / "map.json"))
+        alias = g.to_alias("JPEREZ@CORP.LOCAL")   # nombre real (del RESUMEN) → alias
+        deanon = g.deanon_path("USER_0001 -[MemberOf]-> DOMAIN_ADMINS@DOM_01")
+        ok = (alias == "USER_0001" and "JPEREZ@CORP.LOCAL" in deanon
+              and "DOMAIN ADMINS@CORP.LOCAL" in deanon)
+        return (ok, f"alias={alias} deanon={deanon}")
+    check("mej", "graph_q: consulta por nombre real + de-anon de salida", e_deanon)
+
     def e_scrub_perf():
         # anti-regresión: el scrub escala O(len), no O(nº patrones). Con el
         # mega-regex viejo esto tardaba >30 s; margen amplio para no ser flaky.

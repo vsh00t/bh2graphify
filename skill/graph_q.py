@@ -47,8 +47,12 @@ class GraphQ:
             with open(map_path, encoding="utf-8") as f:
                 self._map = json.load(f).get("mapping", {})
             self._by_alias = {e["alias"]: e for e in self._map.values()}
+            # real (upper) → alias: permite consultar con los nombres del RESUMEN
+            self._real_to_alias = {(e.get("real") or "").upper(): e["alias"]
+                                   for e in self._map.values() if e.get("real")}
         else:
             self._by_alias = {}
+            self._real_to_alias = {}
         # adyacencia: node -> [(other, rel, reversed_flag, props)]
         self.adj: dict[str, list] = defaultdict(list)
         for lk in self.graph["links"]:
@@ -57,6 +61,16 @@ class GraphQ:
             self.adj[lk["source"]].append((lk["target"], lk["relation"], False, p))
             if lk["relation"] in REVERSIBLE:
                 self.adj[lk["target"]].append((lk["source"], lk["relation"], True, p))
+
+    def to_alias(self, name: str) -> str:
+        """Nombre real → alias del grafo. Si ya es un id del grafo, lo deja igual."""
+        if name in self.nodes:
+            return name
+        return self._real_to_alias.get(name.upper(), name)
+
+    @property
+    def has_map(self) -> bool:
+        return bool(self._by_alias)
 
     # — info básica —
     def stats(self) -> dict:
@@ -163,13 +177,15 @@ class GraphQ:
         return e["real"] if e else "(sin mapa o alias desconocido)"
 
     def deanon_path(self, path_str: str) -> str:
-        """De-anonimiza un path string (reemplaza alias por nombres reales)."""
+        """De-anonimiza un string (reemplaza cada alias por 'real [alias]').
+        El token captura el alias completo incluyendo sufijos @DOM_NN / .DOM_NN,
+        así los well-known (ADMINISTRATOR@DOM_01) se resuelven enteros."""
         import re as _re
         def _sub(m):
             tok = m.group(0)
             real = self._by_alias.get(tok, {}).get("real")
             return f"{real} [{tok}]" if real else tok
-        return _re.sub(r"[A-Z]+_[A-Z0-9_.@\-]+", _sub, path_str)
+        return _re.sub(r"[A-Z][A-Z0-9_]*(?:[@.\-][A-Z0-9_]+)*", _sub, path_str)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -195,6 +211,8 @@ def main():
                     help="ruta a graph.json (default: junto a este script)")
     ap.add_argument("--map", default=str(here / "map.json"),
                     help="ruta a map.json para de-anon (opcional)")
+    ap.add_argument("--anon", action="store_true",
+                    help="modo alias: no traducir entrada/salida (grafo sin operador)")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("stats", help="inventario: tipos y relations top")
     sp = sub.add_parser("controllers", help="quién tiene control directo sobre un nodo")
@@ -223,37 +241,48 @@ def main():
 
     mp = args.map if Path(args.map).is_file() else None
     g = GraphQ(args.graph, map_path=mp)
+    # con map disponible: aceptar nombres reales (los del RESUMEN) como entrada y
+    # devolver nombres reales. --anon fuerza el modo alias (grafo sin operador).
+    use_real = g.has_map and not args.anon
+
+    def R(name):  # entrada real → alias
+        return g.to_alias(name) if use_real else name
+
+    lines: list[str] = []
+    def pr(s=""):
+        lines.append(s)
 
     if cmd == "stats":
         s = g.stats()
-        print(f"nodos={s['nodes']} links={s['links']} anonymized={s['anonymized']}")
-        print("por tipo: " + ", ".join(f"{k}={v}" for k, v in sorted(s["by_type"].items())))
-        print("relations top:")
+        pr(f"nodos={s['nodes']} links={s['links']} anonymized={s['anonymized']}")
+        pr("por tipo: " + ", ".join(f"{k}={v}" for k, v in sorted(s["by_type"].items())))
+        pr("relations top:")
         for r, c in s["top_relations"].items():
-            print(f"  {r:26s} {c}")
+            pr(f"  {r:26s} {c}")
     elif cmd == "controllers":
-        rows = g.controllers(args.node)
+        node = R(args.node)
+        rows = g.controllers(node)
         if not rows:
-            print("(sin controladores directos)")
+            pr("(sin controladores directos)")
         for src, rel, p in rows:
             extra = "  (" + ", ".join(f"{k}={v}" for k, v in p.items()) + ")" if p else ""
-            print(f"  {src} -[{rel}]-> {args.node}{extra}")
+            pr(f"  {src} -[{rel}]-> {node}{extra}")
     elif cmd == "paths-to":
-        res = g.paths_to(args.target, max_hops=args.max_hops, limit=args.limit)
+        res = g.paths_to(R(args.target), max_hops=args.max_hops, limit=args.limit)
         if not res:
-            print("(sin paths a ese target)")
+            pr("(sin paths a ese target)")
         for r in res:
-            print(f"[{r['hops']}h] {r['from']}")
-            print("   " + " | ".join(r["path"]))
+            pr(f"[{r['hops']}h] {r['from']}")
+            pr("   " + " | ".join(r["path"]))
     elif cmd == "path":
-        p = g.path(args.src, args.dst, max_hops=args.max_hops)
-        print(" | ".join(p) if p else "(sin path)")
+        p = g.path(R(args.src), R(args.dst), max_hops=args.max_hops)
+        pr(" | ".join(p) if p else "(sin path)")
     elif cmd == "by-relation":
         links = g.by_relation(args.relation, limit=args.limit)
         if not links:
-            print("(ningún link con esa relation)")
+            pr("(ningún link con esa relation)")
         for lk in links:
-            print(f"  {lk['source']} -[{lk['relation']}]-> {lk['target']}")
+            pr(f"  {lk['source']} -[{lk['relation']}]-> {lk['target']}")
     elif cmd == "find-props":
         props = {}
         for kv in args.kv:
@@ -265,22 +294,34 @@ def main():
                 vv = int(vv)
             props[k] = vv
         rows = g.find_props(**props)
-        print(f"{len(rows)} nodo(s):")
+        pr(f"{len(rows)} nodo(s):")
         for n in rows[:60]:
-            print(f"  {n['id']} ({n.get('type')})")
+            pr(f"  {n['id']} ({n.get('type')})")
     elif cmd == "search":
-        rows = g.search(args.substr, type_=args.type)
-        print(f"{len(rows)} nodo(s):")
+        if use_real:  # buscar el substr en los NOMBRES REALES (no en los alias)
+            su = args.substr.upper()
+            hits = {a for real, a in g._real_to_alias.items() if su in real}
+            rows = [n for n in g.graph["nodes"] if n["id"] in hits
+                    and (args.type is None or n.get("type") == args.type)]
+        else:
+            rows = g.search(args.substr, type_=args.type)
+        pr(f"{len(rows)} nodo(s):")
         for n in rows[:60]:
-            print(f"  {n['id']} ({n.get('type')})")
+            pr(f"  {n['id']} ({n.get('type')})")
     elif cmd == "neighbors":
-        rows = g.neighbors(args.node, rel=args.rel, direction=args.direction)
+        node = R(args.node)
+        rows = g.neighbors(node, rel=args.rel, direction=args.direction)
         if not rows:
-            print("(sin vecinos)")
+            pr("(sin vecinos)")
         for other, rel, rev, _p in rows:
-            print(f"  {args.node} {'<-' if rev else '->'}[{rel}] {other}")
+            pr(f"  {node} {'<-' if rev else '->'}[{rel}] {other}")
     elif cmd == "deanon":
-        print(g.deanon(args.alias))
+        pr(g.deanon(args.alias))
+
+    out = "\n".join(lines)
+    if use_real:
+        out = g.deanon_path(out)   # alias → "real [alias]" en toda la salida
+    print(out)
 
 
 if __name__ == "__main__":

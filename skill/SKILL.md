@@ -63,11 +63,15 @@ resto de este skill. Exit `1` = leak duro (revisar antes de sacar el grafo),
 
 ```bash
 Q="<out>/graphify-out/graph_q.py"
-python3 "$Q" stats                              # inventario: tipos, relations top
-python3 "$Q" paths-to "DOMAIN_ADMINS@DOM_01"    # quién llega y cómo
-python3 "$Q" controllers "GROUP_NNNN"           # quién controla X
-python3 "$Q" find-props hasspn=true             # kerberoastables
+python3 "$Q" stats                                 # inventario: tipos, relations top
+python3 "$Q" paths-to "DOMAIN ADMINS@DOM.LOCAL"    # quién llega y cómo
+python3 "$Q" controllers "SRVR-XX.DOM.LOCAL"       # quién controla X
+python3 "$Q" find-props hasspn=true                # kerberoastables
 ```
+
+Acepta el **nombre real** (los del RESUMEN) o el alias y devuelve nombres reales
+(usa el `map.json` de al lado). `--anon` fuerza el modo alias (para sacar el grafo
+fuera del operador).
 
 **O como librería** (para razonamiento más elaborado):
 
